@@ -1,0 +1,364 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PEP Emergency Timeline Machine</title><script>'use strict';
+const evidence=Object.freeze({ideal:24,limit:72,course:28,maxDial:96,source:'https://www.cdc.gov/mmwr/volumes/74/rr/rr7401a1.htm'});
+const stages=Object.freeze([
+  {name:'Start the exposure clock',start:.9,end:5.1,hour:12,days:0,gate:0,tag:'POSSIBLE EXPOSURE',
+   action:'The hour hand moves to an example time since a possible exposure.',
+   care:'Seek medical assessment promptly after a possible HIV exposure. A clinician considers what happened and whether PEP is appropriate.'},
+  {name:'Open the assessment gate',start:5.8,end:11,hour:12,days:0,gate:1,tag:'CLINICAL ASSESSMENT',
+   action:'The assessment lever lifts the route selector in the cutaway.',
+   care:'PEP means post-exposure prophylaxis. If indicated, start as soon as possible, ideally within {ideal} hours. Clinicians arrange baseline testing without delaying the first dose for pending laboratory results.'},
+  {name:'Compare the time window',start:11.7,end:18.7,hour:72,days:0,gate:0,tag:'TIME WINDOW',
+   action:'The hour hand sweeps to the outer edge of the recommended start window.',
+   care:'CDC recommends starting indicated PEP no later than {limit} hours after exposure. The outer marker is a guideline threshold. Seek help as soon as possible.'},
+  {name:'Check a later arrival',start:19.4,end:24.9,hour:84,days:0,gate:0,tag:'SEEK CARE FOR FOLLOW-UP',
+   action:'The hand passes the outer marker. The follow-up indicator turns on.',
+   care:'After {limit} hours, still seek care. Evidence is insufficient for routine initiation beyond this window. A clinician can assess the situation, arrange HIV testing and discuss prevention and follow-up.'},
+  {name:'Run the course calendar',start:25.6,end:32.5,hour:12,days:28,gate:1,tag:'STANDARD PEP COURSE',
+   action:'The clock returns to the earlier case. The calendar advances only in this example where PEP is indicated and started.',
+   care:'The recommended PEP course is {course} days. The medicines interfere with early HIV replication. Complete prescribed treatment and follow the care team’s testing plan.'},
+  {name:'Reset the machine',start:33.2,end:36,hour:0,days:0,gate:0,tag:'RESETTING',
+   action:'The hand, calendar and assessment lever return to standby.',
+   care:'If you’re unsure whether an exposure warrants PEP, seek medical assessment promptly.'}
+].map(Object.freeze));
+const intro=Object.freeze({name:'Every hour matters',hour:0,days:0,gate:0,tag:'STANDBY',
+  action:'Use the left switches to turn the exposure clock and course calendar.',
+  care:'The clock illustrates CDC’s U.S. guidance for possible nonoccupational exposure. It uses fictional example times and offers no individual diagnosis.'});
+const takeaway='Seek help right away after possible HIV exposure. If PEP is indicated, starting promptly and completing the course can help prevent HIV.';
+const clamp=(n,lo=0,hi=1)=>Math.min(hi,Math.max(lo,n));
+const smooth=p=>{const u=clamp(p);return u*u*(3-2*u);};
+const mix=(a,b,p)=>a+(b-a)*p;
+const medicalText=s=>s.replace(/\{(ideal|limit|course)\}/g,(_,key)=>evidence[key]);
+function simulatePEP(t, {elapsedHours}={}){
+  const seconds=clamp(Number.isFinite(t)?t:0,0,36);
+  const index=stages.findLastIndex(step=>seconds>=step.start);
+  const stage=stages[index]||intro;
+  const previous=stages[index-1]||intro;
+  const age=index<0?0:seconds-stage.start;
+  const reset=index===5&&age>=2.2;
+  const reading=reset?intro:stage;
+  const hand=smooth(age/([2.4,2.4,5.4,2.6,1.5,2.2][index]||1));
+  const lever=smooth(age/2.2);
+  const course=index===4?smooth((age-1.5)/4.8):smooth(age/2.2);
+  const hour=mix(previous.hour,stage.hour,hand);
+  const days=mix(previous.days,stage.days,course);
+  const gate=mix(previous.gate,stage.gate,lever);
+  const marker=index===3?smooth((age-1.1)/1.5):index===4?1-smooth(age/1.5):0;
+  const next=index<0||reset?0:seconds>=stage.end?index+1:-1;
+  if(Number.isFinite(elapsedHours)&&elapsedHours>=0){
+    const remaining=Math.max(0,evidence.limit-elapsedHours);
+    const status=elapsedHours>evidence.limit?'past':remaining===0?'deadline':'within';
+    return {seconds,index:-1,reset:false,next,
+      angle:-138+clamp(elapsedHours,0,evidence.maxDial)/evidence.maxDial*276,
+      hour:elapsedHours,days:0,gate:0,marker:status==='within'?0:1,drive:elapsedHours*2,
+      caption:status==='past'?'SEEK CARE FOR FOLLOW-UP':status==='deadline'?'START WINDOW LIMIT':'ASSESS EXPOSURE TYPE',
+      title:'Explore elapsed time',
+      action:'Earlier assessment leaves more time to start PEP if indicated. Seek assessment as soon as possible.',
+      care:status==='past'
+        ? medicalText('After {limit} hours, PEP is generally not recommended. Still seek medical care for assessment, HIV testing and follow-up.')
+        : medicalText('PEP depends on the type of exposure and its HIV risk. A clinician assesses whether it is indicated. If indicated, start as soon as possible, ideally within {ideal} hours and no later than {limit} hours.'),
+      reading:elapsedHours+' h after possible exposure',courseReadout:'Course calendar parked',
+      timing:{remaining,status},takeaway,evidence,highlight:0};
+  }
+  return {seconds,index,reset,next,
+    angle:-138+(hour/evidence.maxDial)*276,hour,days,gate,marker,drive:hour*2+gate*140+days*23,
+    caption:reading.tag,title:reading.name,action:reading.action,care:medicalText(reading.care),
+    reading:index<0||reset?'Example clock ready':index===5?'Returning to standby':hand<1?'Moving to example':String(reading.hour)+' h after possible exposure',
+    courseReadout:index===4||index===5&&!reset?Math.round(days)+' / '+evidence.course+' days':'Course calendar parked',
+    takeaway,evidence,highlight:smooth((seconds-35.3)/.7)};
+}
+</script>
+<style>
+:root{color-scheme:light;--paper:#f5f0e5;--ink:#212d42;--shadow:#ddd4c3;--brass:#eac481;--sage:#ccd8bf}
+*{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font:16px/1.45 Georgia,serif}
+main{max-width:1450px;margin:auto;padding:46px 35px 26px}header{padding:14px 0 16px;border-top:1.2px solid var(--ink);border-bottom:1.2px solid var(--ink)}
+h1{font-size:clamp(2.2rem,5.8vw,5rem);line-height:1;letter-spacing:-.06em;margin:.14em 0}.caption{margin:.4em 0 0}
+.kicker{font:700 11px/1.25 system-ui;letter-spacing:.16em;text-transform:uppercase}
+.layout{display:grid;grid-template-columns:minmax(160px,1fr) minmax(0,4.05fr) minmax(175px,1.12fr);gap:20px;padding-top:20px;align-items:start}
+nav{position:relative}ol{padding:0;list-style:none}button{font:700 13px/1.24 system-ui;color:var(--ink);border:1.2px solid var(--ink);box-shadow:2px 2px var(--shadow);border-radius:6px;min-height:43px;cursor:pointer;padding:8px;background:#eee8d9;text-align:left}
+li button{display:flex;gap:.55em;align-items:center;width:100%;margin-bottom:9px}li button:enabled,li button[aria-current=true]{background:var(--brass)}li button:disabled{cursor:default;color:#4d5052;border-color:#8c867e}
+li button[data-done=true]{background:#e0e7d6}button:focus-visible,a:focus-visible{outline:2px solid var(--ink);outline-offset:4px}
+.num{border:1.2px solid currentColor;border-radius:50%;font-size:11px;flex:0 0 22px;text-align:center;line-height:20px}
+#cursor[hidden]{display:none}#cursor{position:absolute;top:0;left:0;width:31px;height:39px;pointer-events:none;z-index:1}
+figure{margin:0;border:1.2px solid #b6aa94;border-radius:9px;background:#faf5e8;box-shadow:2px 2px var(--shadow);overflow:hidden}
+figure svg{display:block;width:100%;height:auto}figcaption{padding:0 14px 14px;font:12px/1.35 system-ui}
+aside{border:1.2px solid var(--ink);border-radius:8px;box-shadow:2px 2px var(--shadow);background:#fff9eb;padding:15px;overflow-wrap:anywhere}aside h2{font-size:1.5rem;line-height:1.07;margin:10px 0 14px}
+aside p{font-size:14px;margin:0 0 12px}aside a{font:700 11px/1.25 system-ui;color:inherit;text-underline-offset:3px}
+.chips{display:flex;gap:8px;flex-wrap:wrap;margin:13px 0} .chips span{font:600 12px/1.2 system-ui;padding:5px 9px;border:1.2px solid #a39681;border-radius:20px;background:#faf5e8}
+#big{margin:10px 0 0;padding:10px 4px;border-top:1.2px solid #ab9c83}
+.render #play{visibility:hidden}
+.pep-time{display:grid;gap:5px;padding:11px 14px;border-top:1px solid #b6aa94;background:#fff9eb;font:13px/1.45 system-ui,sans-serif}
+.pep-time[hidden]{display:none}
+.pep-time label{font-weight:750}
+.pep-time input{width:100%;margin:0;min-height:28px;accent-color:#8b6235}
+.pep-time input:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.pep-scale{display:flex;justify-content:space-between;color:#4d5052;font-size:12px}
+@media(max-width:830px){main{padding:25px 15px}.layout{grid-template-columns:minmax(126px,1fr) minmax(0,4fr);gap:12px}aside{grid-column:1/-1}}
+@media(max-width:510px){.layout{display:block}nav{margin-bottom:14px}li button{margin-bottom:6px}aside{margin-top:14px}}
+</style></head>
+<body><main>
+<header><div class="kicker">The HIV Education Workshop · Machine 07</div><h1>PEP Emergency Timeline</h1><p class="caption">Turn the hour hand. Open the assessment gate. Follow the course calendar.</p></header>
+<div class="layout">
+<nav aria-label="Lesson steps"><div class="kicker">Operate the machine</div><ol id="switches"></ol><button id="play" type="button">Play guided tour</button>
+<svg id="cursor" viewBox="0 0 35 43" aria-hidden="true"><path d="M8 28 4 20c-2-4 3-6 5-2l4 5V6c0-4 5-4 5 0v14c1-5 6-4 6 0 2-3 6-1 6 2 3 0 5 3 3 7l-4 9H14z" fill="#efcb87" stroke="#212d42" stroke-width="1.2"/><path d="M15 37h14" stroke="#212d42" stroke-width="1.2"/></svg></nav>
+<figure><svg id="machine" viewBox="0 0 870 622" role="img" aria-labelledby="machine-title"><title id="machine-title">Isometric PEP teaching clock with an exposure dial, clinical assessment gate, and a course calendar</title><g id="drawing"></g></svg>
+<figcaption>时钟与剖面为教学模型：指针显示可能暴露后经过的小时数，日历显示按医嘱使用 PEP 的天数。</figcaption>
+<div class="pep-time" id="pep-time" hidden><label for="pep-elapsed" id="pep-elapsed-label">Hours since possible HIV exposure</label>
+<input id="pep-elapsed" type="range" min="0" step="1" value="0" aria-describedby="pep-elapsed-hint">
+<div class="pep-scale" aria-hidden="true"><span id="pep-scale-start"></span><span id="pep-scale-end"></span></div>
+<span id="pep-elapsed-hint"></span></div></figure>
+<aside aria-label="Clinical explanation"><div class="kicker" id="tag"></div><h2 id="heading"></h2><p id="action"></p><p id="care"></p><a id="citation">CDC · U.S. nPEP recommendations, 2025 ↗</a></aside>
+</div>
+<div class="chips"><span id="reading"></span><span id="window"></span><span id="course"></span></div>
+<p id="big"><b>The big idea:</b> <span></span></p>
+</main><script>'use strict';
+const $=id=>document.getElementById(id);
+const renderMode=new URLSearchParams(location.search).has('render');
+document.body.classList.toggle('render',renderMode);
+const outline='stroke="#212d42" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"';
+const metal=['#e4eae5','#becac5','#8c9e99'];
+const brass=['#f8dfa6','#e9bd71','#b7834b'];
+const sage=['#e2ead7','#b3c3a3','#879b81'];
+const paper='#fff6e2', glass='#dceae3', ink='#212d42', coral='#cc7c67';
+function rect(x,y,w,h,fill,r=0){
+  return `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${r}" fill="${fill}" ${outline}/>`;
+}
+function shape(d,fill='none'){
+  return `<path d="${d}" fill="${fill}" ${outline}/>`;
+}
+function circle(x,y,r,fill){
+  return `<circle cx="${x}" cy="${y}" r="${r}" fill="${fill}" ${outline}/>`;
+}
+const zhDial={
+  'EXPOSURE CLOCK & COURSE CALENDAR':'暴露时钟与疗程日历',
+  'HIV PREVENTION TEACHING MODEL':'HIV 预防教学模型',
+  'ASSESSMENT':'临床评估',
+  'SERVICE PANEL':'控制面板',
+  'CLINICAL ASSESSMENT CUTAWAY':'临床评估剖面',
+  'REPLICATION TEACHING MODEL':'病毒复制示意',
+  'PEP medicines act inside the body':'PEP 药物在体内发挥作用',
+  'HOURS SINCE EXPOSURE':'暴露后经过小时',
+  'COURSE CALENDAR':'PEP 疗程日历',
+  'DAYS OF PRESCRIBED PEP':'遵医嘱服药天数',
+  'REVIEW':'评估',
+  'POSSIBLE EXPOSURE':'可能暴露',
+  'CLINICAL ASSESSMENT':'临床评估',
+  'TIME WINDOW':'启动时间窗',
+  'SEEK CARE FOR FOLLOW-UP':'就医与随访',
+  'STANDARD PEP COURSE':'标准 PEP 疗程',
+  'RESETTING':'正在复位',
+  'ASSESS EXPOSURE TYPE':'评估暴露类型',
+  'START WINDOW LIMIT':'启动时间窗上限'
+};
+function text(x,y,value,size=13,anchor='middle',extra=''){
+  if(typeof value==='string')value=zhDial[value]??(value===`≤ ${evidence.limit} h · RECOMMENDED START WINDOW`?`最迟 ${evidence.limit} 小时内评估启动`:value);
+  return `<text x="${x}" y="${y}" font-family="system-ui,sans-serif" font-size="${size}" font-weight="700" fill="${ink}" text-anchor="${anchor}" ${extra}>${String(value).replaceAll('&','&amp;').replaceAll('<','&lt;')}</text>`;
+}
+function box(x,y,w,h,d,colors){
+  const rise=Math.round(d*.57);
+  return shape(`M${x} ${y}l${d} -${rise}h${w}l-${d} ${rise}Z`,colors[0])+
+    shape(`M${x+w} ${y}l${d} -${rise}v${h}l-${d} ${rise}Z`,colors[2])+
+    rect(x,y,w,h,colors[1]);
+}
+function screw(x,y){
+  return circle(x,y,3.7,'#e3e9de')+shape(`M${x-1.8} ${y+1.4}l3.6 -2.8`);
+}
+function corners(x,y,w,h){
+  return [[x,y],[x+w,y],[x,y+h],[x+w,y+h]].map(([a,b])=>screw(a,b)).join('');
+}
+function gear(x,y,r,angle,colors){
+  const teeth=12;
+  const pts=Array.from({length:teeth*4},(_,i)=>{
+    const a=i*Math.PI*2/(teeth*4), rr=i%4===0||i%4===3?r-3:r;
+    return [Math.cos(a)*rr,Math.sin(a)*rr].map(v=>v.toFixed(2)).join(',');
+  }).join(' ');
+  const wheel=(ox,oy,fill)=>`<polygon points="${pts}" transform="translate(${ox} ${oy}) rotate(${angle})" fill="${fill}" ${outline}/>`;
+  return `<g transform="translate(${x} ${y})">`+wheel(3,-2,colors[2])+wheel(0,0,colors[1])+
+    circle(0,0,r*.56,colors[0])+circle(0,0,5,metal[0])+shape('M-3 2l6 -4')+'</g>';
+}
+const dialCenter=[626,274], radius=117;
+function polar(a,r){
+  return [dialCenter[0]+r*Math.sin(a*Math.PI/180),dialCenter[1]-r*Math.cos(a*Math.PI/180)];
+}
+const hourAngle=h=>-138+276*h/evidence.maxDial;
+function arc(from,to,r,color){
+  const a=polar(hourAngle(from),r), b=polar(hourAngle(to),r);
+  return `<path d="M${a.join(' ')} A${r} ${r} 0 ${hourAngle(to)-hourAngle(from)>180?1:0} 1 ${b.join(' ')}" fill="none" stroke="${color}" stroke-width="7"/>`;
+}
+const dialTicks=Array.from({length:25},(_,i)=>{
+  const h=i*evidence.maxDial/24;
+  const big=i%6===0;
+  const a=polar(hourAngle(h),106), b=polar(hourAngle(h),big?92:99);
+  const label=polar(hourAngle(h),79);
+  return shape(`M${a.join(' ')} L${b.join(' ')}`)+(big?text(label[0],label[1]+4,h,14):'');
+}).join('');
+const cabinet=
+  '<path d="M69 543H770L830 506 846 518 782 572H105z" fill="#ddd4c3"/>'+
+  box(106,518,51,24,19,metal)+box(708,518,52,24,17,metal)+box(80,491,698,32,59,brass)+
+  box(94,131,668,362,62,metal)+box(94,115,668,35,62,brass)+
+  rect(106,123,272,19,paper,3)+text(242,137,'EXPOSURE CLOCK & COURSE CALENDAR',10)+
+  rect(535,123,210,19,paper,3)+text(640,137,'HIV PREVENTION TEACHING MODEL',10)+
+  box(131,88,103,23,38,sage)+text(181,103,'ASSESSMENT',10)+
+  box(365,90,108,22,35,metal)+text(420,105,'SERVICE PANEL',10)+
+  Array.from({length:8},(_,i)=>shape(`M${780+i*4} ${243-i*2.2}l8 -5`)).join('')+
+  Array.from({length:8},(_,i)=>shape(`M${780+i*4} ${391-i*2.2}l8 -5`)).join('')+
+  corners(105,162,646,317)+screw(103,506)+screw(758,506)+
+  rect(113,166,353,291,metal[2],8)+rect(122,174,335,275,glass,6)+corners(130,182,319,259)+
+  rect(147,188,285,26,paper,4)+text(290,205,'CLINICAL ASSESSMENT CUTAWAY',12)+
+  box(139,305,57,31,13,metal)+box(380,305,59,31,15,metal)+
+  shape('M195 319 H379')+rect(186,306,199,27,'#c4d9d1',8)+shape('M196 313h174')+
+  rect(216,254,119,108,'#edf3e3',5)+corners(222,260,107,96)+
+  shape('M232 242h91v14h-91Z',metal[1])+rect(255,228,42,102,'#d6dfd7',3)+
+  box(161,378,251,43,15,sage)+text(287,395,'REPLICATION TEACHING MODEL',10)+
+  text(287,411,'PEP medicines act inside the body',10)+
+  box(496,414,248,61,12,brass)+rect(508,423,224,38,paper,3)+
+  box(118,466,353,19,14,metal)+screw(127,475)+screw(456,475)+
+  circle(631,271,125,brass[2])+circle(626,274,125,brass[1])+circle(626,274,117,paper)+
+  arc(0,evidence.ideal,112,'#a2b293')+arc(evidence.ideal,evidence.limit,112,'#e3b366')+arc(evidence.limit,evidence.maxDial,112,'#d9a694')+
+  dialTicks+text(626,354,'HOURS SINCE EXPOSURE',11)+
+  rect(515,397,222,14,paper,2)+text(626,407,'≤ '+evidence.limit+' h · RECOMMENDED START WINDOW',9);
+function drawMachine(m){
+  const leverY=(1-m.gate)*-23;
+  const turn=-30+50*m.gate;
+  const course=Math.round(m.days);
+  const medicine=m.index===4?smooth((m.seconds-stages[4].start-1.5)/1.8):m.index===5?1-smooth((m.seconds-stages[5].start)/2.2):0;
+  const spinner=gear(158,283,15,m.drive,brass)+gear(182,275,10,-1.5*m.drive,metal);
+  return cabinet+
+    '<defs><clipPath id="belt"><rect x="188" y="307" width="195" height="24" rx="8"/></clipPath></defs>'+
+    spinner+
+    `<g clip-path="url(#belt)" opacity="${.35+.65*m.gate}">`+
+    [0,1,2,3].map(i=>rect(160+(i*62+m.drive*.72)%250,314,20,10,i%2===0?brass[0]:sage[0],3)).join('')+'</g>'+
+    `<g transform="translate(0 ${leverY})">`+box(251,288,50,36,9,sage)+text(276,311,'REVIEW',9)+'</g>'+
+    `<g transform="rotate(${turn} 184 246)">`+shape('M184 249l-5 -33h9l1 34Z',brass[1])+circle(183,217,7,brass[0])+'</g>'+circle(184,246,8,metal[0])+
+    gear(365,266,24,m.drive*.47*(1-.67*medicine),brass)+gear(404,277,15,-m.drive*.72*(1-.67*medicine),metal)+
+    `<g opacity="${medicine}">`+rect(389,230,35,15,sage[0],7)+shape('M406 230v15')+'</g>'+
+    `<g transform="rotate(${m.angle} ${dialCenter.join(' ')})">`+shape('M621 286 623 218 626 205 629 218 631 286Z',coral)+'</g>'+
+    circle(626,274,12,brass[0])+screw(626,274)+
+    text(520,438,'COURSE CALENDAR',10,'start')+text(520,454,'DAYS OF PRESCRIBED PEP',9,'start')+
+    rect(669,429,50,27,course>0?sage[0]:'#eee4cc',4)+text(694,447,course+' / '+evidence.course,11)+
+    circle(138,476,4,m.marker>.65?brass[0]:m.gate>.85?sage[0]:'#ebe6d5')+text(151,480,m.caption,11,'start');
+}
+const list=$('switches');
+list.innerHTML=stages.map((step,i)=>`<li><button type="button" data-index="${i}"><span class="num">${i+1}</span>${step.name}</button></li>`).join('');
+const controls=Array.from(list.querySelectorAll('button'));
+const cursor=$('cursor');
+const elapsed=$('pep-elapsed');
+let playFrame=0,playing=false,paused=false,progress=0,mode='manual',pending=-1;
+let settled=0;
+let drawnMachine='';
+function label(id,value){
+  const node=$(id);
+  if(node.textContent!==value)node.textContent=value;
+}
+function positionCursor(s, guided){
+  cursor.hidden=!guided||s.reset;
+  if(!renderMode)cursor.toggleAttribute('hidden',cursor.hidden);
+  if(cursor.hidden){
+    cursor.setAttribute('style','');
+    return;
+  }
+  const i=Math.max(0,s.index), current=stages[i], next=stages[i+1];
+  const move=s.index<0?smooth(s.seconds/.9):next?smooth((s.seconds-current.end)/(next.start-current.end)):0;
+  const currentY=controls[i].offsetTop+controls[i].offsetHeight/2;
+  const nextY=controls[i+1]?controls[i+1].offsetTop+controls[i+1].offsetHeight/2:currentY;
+  const y=s.index<0?mix(currentY-29,currentY,move):mix(currentY,nextY,move);
+  const tap=smooth((s.seconds-current.start+.11)/.11)*(1-smooth((s.seconds-current.start)/.29));
+  cursor.style.transform=`translate(${19+7*tap+4*Math.sin(Math.PI*move)}px,${y-5}px) rotate(${-25+10*tap}deg) scale(${1-.12*tap})`;
+}
+function draw(time,guided,elapsedHours){
+  const s=simulatePEP(time,{elapsedHours});
+  if(!guided&&pending<0&&!s.timing)settled=time;
+  const svg=drawMachine(s);
+  if(svg!==drawnMachine){
+    $('drawing').innerHTML=svg;
+    drawnMachine=svg;
+  }
+  label('tag',s.caption);
+  label('heading',s.title);
+  label('action',s.action);
+  label('care',s.care);
+  if(s.timing){
+    const zh=elapsed.lang==='zh-CN';
+    const {remaining,status}=s.timing;
+    const reading=zh?`可能暴露后 ${s.hour} 小时`:s.reading;
+    const windowLabel=zh
+      ? (status==='past'?'已超过 PEP 常规启动时间窗':status==='deadline'?`已达 ${s.evidence.limit} 小时上限 · 立即就医评估`:`在 PEP 启动时间窗内 · 距 ${s.evidence.limit} 小时上限还有 ${remaining} 小时`)
+      : (status==='past'?'Beyond the routine PEP start window':status==='deadline'?`At the ${s.evidence.limit} h limit · seek assessment now`:`${remaining} h until the ${s.evidence.limit} h PEP start limit`);
+    elapsed.setAttribute('aria-valuetext',reading);
+    label('reading',reading);
+    label('window',windowLabel);
+    label('course',zh?'疗程日历未启动':s.courseReadout);
+  }else{
+    const readableHour=(s.index<0||s.reset)?'教学时钟已就绪':s.index===5?'正在复位':`教学示例：暴露后 ${Math.round(s.hour)} 小时`;
+    label('reading',readableHour);
+    label('window',`如有指征：最好 ${s.evidence.ideal} 小时内，最迟 ${s.evidence.limit} 小时内启动 PEP`);
+    label('course',s.index===4?`已演示 ${Math.round(s.days)} / ${s.evidence.course} 天疗程`:'疗程日历未启动');
+  }
+  $('big').lastElementChild.textContent=s.takeaway;
+  $('big').style.backgroundColor=`rgba(234,196,129,${s.highlight*.55})`;
+  controls.forEach((button,i)=>{
+    button.disabled=renderMode||guided||pending>=0||i!==s.next;
+    button.setAttribute('aria-current',String(i===s.index&&!s.reset));
+    button.dataset.done=String(i<s.index&&!s.reset);
+  });
+  positionCursor(s,guided);
+  return s;
+}
+function stop(){
+  if(playFrame)cancelAnimationFrame(playFrame);
+  playFrame=0;playing=false;
+}
+window.simulatePEP=simulatePEP;
+window.seek=t=>{
+  stop();paused=false;mode='guided';pending=-1;
+  return draw(Number(t),true);
+};
+function play(from,to,guided){
+  stop();playing=true;paused=false;
+  const started=performance.now();
+  const tick=now=>{
+    progress=Math.min(to,from+(now-started)/1000);
+    if(progress>=to){
+      stop();pending=-1;
+      $('play').textContent='Play guided tour';
+      draw(guided?36:to,false);
+    }else{
+      draw(progress,guided);
+      playFrame=requestAnimationFrame(tick);
+    }
+  };
+  draw(from,guided);
+  playFrame=requestAnimationFrame(tick);
+}
+if(!renderMode){
+  elapsed.max=evidence.limit;
+  label('pep-scale-start','0 h');
+  label('pep-scale-end',evidence.limit+' h');
+  label('pep-elapsed-hint',`Seek assessment promptly. After ${evidence.limit} hours, PEP is generally not recommended, but testing and follow-up still matter.`);
+  $('pep-time').hidden=false;
+  elapsed.addEventListener('input',()=>{
+    stop();paused=false;mode='manual';pending=-1;
+    $('play').textContent='Play guided tour';
+    draw(settled,false,elapsed.valueAsNumber);
+  });
+  controls.forEach((button,i)=>button.addEventListener('click',()=>{
+    stop();mode='manual';pending=i;
+    const step=stages[i];
+    if(matchMedia('(prefers-reduced-motion: reduce)').matches){pending=-1;draw(step.end,false);}
+    else play(step.start,step.end,false);
+  }));
+  $('play').addEventListener('click',()=>{
+    if(mode==='guided'&&playing){
+      stop();paused=true;
+      $('play').textContent='Resume tour';
+      return;
+    }
+    mode='guided';pending=-1;
+    $('play').textContent='Pause tour';
+    play(paused?progress:0,36,true);
+  });
+}
+$('citation').href=evidence.source;
+draw(0,false);
+</script></body></html>

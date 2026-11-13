@@ -1,0 +1,294 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>05 · Blood Exposure Safety Machine</title>
+<style>
+:root{--ink:#243248;--paper:#f5f0e5;--shadow:#ddd4c3;--brass:#edc885;--sage:#d7e2c8;--rule:#b7ab95}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font:15px/1.53 Georgia,serif}
+main{max-width:1450px;margin:auto;padding:40px 40px 32px}
+header{border-bottom:1.2px solid var(--ink);padding-bottom:19px;margin-bottom:23px}
+h1{font-size:clamp(2.25rem,5.2vw,4.7rem);line-height:1;letter-spacing:-.065em;margin:.12em 0}
+.kicker,.tag{font:700 .68rem/1.4 system-ui;letter-spacing:.19em;text-transform:uppercase}
+header p{margin:9px 0 0;font-size:1.12rem}
+.layout{display:grid;grid-template-columns:minmax(150px, .82fr) minmax(0,3.25fr) minmax(210px,1.02fr);gap:22px;align-items:start}
+nav{position:relative}.steps{list-style:none;margin:9px 0 18px;padding:0;display:grid;gap:8px}
+button{font:600 .81rem/1.25 system-ui;color:var(--ink);cursor:pointer}
+.step,#play{width:100%;min-height:47px;padding:9px 8px;text-align:left;background:#e8e1d2;border:1.2px solid var(--rule);border-radius:7px;box-shadow:2px 2px 0 var(--shadow);display:flex;align-items:center;gap:8px}
+.step:disabled{cursor:default;color:#514f49}.step[data-mode="done"]{background:#e0e7d4}.step[data-mode="next"],.step[data-mode="current"],#play{background:var(--brass);border-color:var(--ink);color:var(--ink)}
+.step:focus-visible,#play:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.step .num{display:inline-grid;place-items:center;min-width:24px;height:24px;border-radius:50%;border:1.2px solid currentColor;font-size:.69rem}
+.render #play{visibility:hidden}
+figure{margin:0;background:#f8f2e5;border:1.2px solid var(--rule);border-radius:10px;overflow:hidden}
+figure .tag{margin:13px 15px 0}#machine{width:100%;display:block}#machine text{fill:var(--ink);stroke:none;font-family:system-ui;font-weight:700;letter-spacing:.035em}
+figure figcaption{padding:0 14px 13px;font:600 .73rem/1.4 system-ui}
+aside{background:#fff8eb;border:1.2px solid var(--ink);border-radius:9px;box-shadow:3px 3px 0 var(--shadow);padding:14px 15px}
+aside h2{font-size:1.45rem;line-height:1.04;margin:8px 0 10px}
+aside p{margin:0 0 13px}
+aside p.note{font-size:.93rem;border-top:1.2px dotted var(--rule);padding-top:11px}
+aside a{display:inline-block;color:var(--ink);font:650 .76rem/1.3 system-ui;text-underline-offset:3px}
+footer{padding:16px 0 5px}
+.chip{display:inline-block;border:1.2px solid var(--ink);padding:4px 9px;background:#fff8eb;border-radius:99px;font:650 .73rem system-ui;margin:0 5px 8px 0}
+footer p{margin:4px 0;font-size:1.1rem}
+#cursor{position:absolute;top:0;left:3px;width:29px;height:33px;pointer-events:none;z-index:2;opacity:0}
+@media(max-width:900px){main{padding:25px 22px}.layout{grid-template-columns:155px minmax(0,1fr)}aside{grid-column:2}}
+@media(max-width:540px){main{padding:18px 14px}.layout{display:flex;flex-direction:column;gap:14px}.layout>*{width:100%}.steps{gap:5px}.step,#play{min-height:40px}aside{width:100%}}
+</style></head>
+<body><main>
+<header><div class="kicker">The HIV education workshop · Machine 05</div><h1>Blood Exposure Safety</h1><p>See what an engineered shield changes inside the sharps safety cabinet.</p></header>
+<div class="layout">
+<nav aria-label="Sequential controls"><div class="tag">Operate the machine</div><ol id="steps" class="steps"></ol><button id="play" type="button">Play 36 s tour</button>
+<svg id="cursor" viewBox="0 0 32 36" aria-hidden="true"><path d="M7 18c-2-4 1-6 4-3l3 4V6c0-5 5-5 5 0v11c1-3 5-3 5 0 2-2 6-1 6 3v5l-4 9H14l-4-9Z" fill="#edc885" stroke="#243248" stroke-width="1.2" stroke-linejoin="round"/><path d="M14 29h14" fill="none" stroke="#243248" stroke-width="1.2"/></svg></nav>
+<figure><div class="tag">Cutaway · Clinical sharps cabinet</div><div id="drawing"></div><figcaption>Coral marks represent a blood sample. The entry slot is a model of punctured skin.</figcaption></figure>
+<aside aria-label="Field notes"><div class="tag">Field notes</div><h2 id="heading"></h2><p id="copy"></p><p class="note" id="note"></p><a id="cite" target="_blank" rel="noreferrer"></a></aside>
+</div>
+<footer><span id="assessment" class="chip"></span><span id="reading" class="chip"></span><p><strong>The big idea:</strong> <span id="takeaway"></span></p></footer>
+</main>
+<script>'use strict';
+
+const guideline = 'https://stacks.cdc.gov/view/cdc/183609/cdc_183609_DS1.pdf';
+const safety = 'https://www.cdc.gov/infection-control/hcp/isolation-precautions/appendix-a-table-4.html';
+const response = 'https://www.cdc.gov/niosh/healthcare/risk-factors/bloodborne-infectious-diseases.html';
+const evidence = Object.freeze({acquisitions:23,exposures:10000,percent:0.23,low:0.00,high:0.46,url:guideline});
+const cohort = '≈ '+evidence.acquisitions+' in '+evidence.exposures.toLocaleString('en-US');
+const takeaway = 'A used sharp can carry blood through the skin. Safety devices and prompt reporting help protect healthcare workers.';
+const duration = 36;
+const stages = Object.freeze([
+  {name:'Load the sample',start:.9,end:5.0,code:'SEALED SAMPLE',heading:'Blood in the chamber',
+    copy:'The sealed cartridge rises into view. Coral symbols represent blood from a source with HIV. The chamber keeps the demonstration contained.',
+    note:'Blood can carry HIV. Blood on intact skin does not provide a way into the body.',cite:['CDC · Standard Precautions',safety],
+    pose:{load:1,travel:0,cover:0,tray:0,drawer:0,flag:0}},
+  {name:'Compare an exposed sharp',start:5.7,end:11.6,code:'POTENTIAL EXPOSURE',heading:'A route through the skin',
+    copy:'An unshielded sharp advances to a model of the skin boundary. A puncture can introduce blood through the skin. The sample marks show a possible exposure.',
+    note:'A potential exposure does not mean HIV was acquired. This cutaway uses teaching symbols.',cite:['U.S. PHS · Occupational HIV guidance',guideline],
+    pose:{load:1,travel:1,cover:0,tray:0,drawer:0,flag:0}},
+  {name:'Engage the safety shield',start:12.3,end:18.6,code:'SHARP SHIELDED',heading:'Keep the sharp covered',
+    copy:'The carriage backs away. An engineered safety shield then covers the sharp, and the carriage redirects it into a puncture-resistant container.',
+    note:'Activate built-in safety features as instructed and dispose of the sharp promptly. Avoid hand recapping.',cite:['CDC · Standard Precautions',safety],
+    pose:{load:1,travel:0,cover:1,tray:1,drawer:0,flag:0}},
+  {name:'Open the evidence drawer',start:19.3,end:25.3,code:'HISTORICAL AVERAGE',heading:'What the estimate measures',
+    copy:'The estimate works out to about '+evidence.acquisitions+' HIV acquisitions per '+evidence.exposures.toLocaleString('en-US')+' percutaneous exposures to blood from a source with HIV, based on prospective studies of healthcare workers.',
+    note:'This is a historical group estimate ('+evidence.percent+'%, 95% CI '+evidence.low.toFixed(2)+'%–'+evidence.high.toFixed(2)+'%). The depth of injury, amount of blood, source viral load and post-exposure care matter.',cite:['U.S. PHS · Risk for occupational transmission',guideline],
+    pose:{load:1,travel:0,cover:1,tray:1,drawer:1,flag:0}},
+  {name:'Report an exposure',start:26,end:32.1,code:'PROMPT ASSESSMENT',heading:'Act promptly after a sharps injury',
+    copy:'The response flag lifts. Wash the puncture with soap and water, report the exposure immediately and seek urgent evaluation under your workplace protocol.',
+    note:'A clinician assesses the exposure and whether HIV post-exposure prophylaxis (PEP) is indicated. Seek help promptly even when details are unclear.',cite:['CDC / NIOSH · Bloodborne exposure response',response],
+    pose:{load:1,travel:0,cover:1,tray:1,drawer:0,flag:1}},
+  {name:'Reset the machine',start:32.8,end:36,code:'RETURN TO START',heading:'Back to standby',
+    copy:'The flag folds down, the carriage returns inside the sealed cabinet, and the sample lowers.',
+    note:'Use the first switch to compare the routes again.',cite:['CDC · Standard Precautions',safety],
+    pose:{load:0,travel:0,cover:0,tray:0,drawer:0,flag:0}},
+].map(stage=>Object.freeze({...stage,pose:Object.freeze(stage.pose),cite:Object.freeze(stage.cite)})));
+const idle = Object.freeze({code:'STANDBY',heading:'Start with a sealed sample',copy:'Choose the first switch to load the cartridge. The chamber shows the difference between a possible exposure and a safety device preventing the puncture.',note:'This teaching machine uses symbols and cannot assess a personal exposure.',cite:['U.S. PHS · Occupational HIV guidance',guideline],pose:stages.at(-1).pose});
+const clamp = x => Math.max(0,Math.min(1,x));
+const smooth = x => {x=clamp(x); return x*x*(3-2*x);};
+const mix = (a,b,p) => a+(b-a)*p;
+function classify(source,route,shielded) {
+  if (shielded || route==='intact' || route==='none') return 'No puncture in this example';
+  if (source!=='HIV') return 'Source information needed';
+  return 'Possible exposure';
+}
+function modelAt(seconds) {
+  const time=Math.max(0,Math.min(duration,Number.isFinite(seconds)?seconds:0));
+  const index=stages.findLastIndex(step=>time>=step.start);
+  const step=stages[index]??idle;
+  const before=stages[index-1]?.pose??idle.pose;
+  const local=time-(step.start??0);
+  const move = (key,offset=0,length=1.9) => mix(before[key],step.pose[key],smooth((local-offset)/length));
+  const pose = index===2 ? {load:1,travel:move('travel',0,1.35),cover:move('cover',1.05,2.1),tray:move('tray',2.7,1.75),drawer:0,flag:0}
+    : Object.fromEntries(Object.keys(step.pose).map(key=>[key,move(key,0,index===5?2.5:2.2)]));
+  const returned=index===5&&local>=2.5;
+  const display=returned?idle:step;
+  const route=pose.travel>=.93?'percutaneous':'none';
+  const assessment=classify('HIV',route,pose.cover>=.97);
+  const readout=index===1&&assessment!=='Possible exposure'?'CARRIAGE APPROACHING'
+    :index===2&&pose.cover<.97?'SHIELD MOVING':display.code;
+  const next=index<0||returned?0:time>=step.end?index+1:-1;
+  return {time,index,local,returned,next,pose,assessment,readout,display,takeaway,evidence,cohort};
+}
+if (typeof module!=='undefined') module.exports={stages,idle,duration,modelAt,classify,evidence};
+</script>
+<script>const palette = {
+  brass:['#f7d99c','#dfb573','#aa7947'],
+  steel:['#e0e9e4','#b3c4bc','#7a9491'],
+  sage:['#d7e2c8','#a9bd97','#708867'],
+  glass:['#f0f6e9','#dce8df','#a8c2bb'],
+  coral:['#ffd1b4','#dc866f','#aa594e'],
+  paper:['#fff8e8','#eee6cf','#d1c2a6']
+};
+const ink='#243248', shadow='#ddd4c3';
+const line=(x,y,X,Y,attr='')=>`<path d="M${x} ${y} ${X} ${Y}" fill="none" ${attr}/>`;
+const rect=(x,y,w,h,fill,r=0,attr='')=>`<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${r}" fill="${fill}" ${attr}/>`;
+const circle=(x,y,r,fill,attr='')=>`<circle cx="${x}" cy="${y}" r="${r}" fill="${fill}" ${attr}/>`;
+const poly=(points,fill,attr='')=>`<polygon points="${points.map(p=>p.join(',')).join(' ')}" fill="${fill}" ${attr}/>`;
+const label=(x,y,value,size=12,anchor='middle',attr='')=>`<text x="${x}" y="${y}" text-anchor="${anchor}" font-size="${size}" ${attr}>${value}</text>`;
+const group=(id,body)=>`<g id="${id}">${body}</g>`;
+function box(x,y,w,h,d,p) {
+  const X=x+w, Y=y+h, v=.6*d;
+  return poly([[x,y],[x+d,y-v],[X+d,y-v],[X,y]],p[0])+poly([[X,y],[X+d,y-v],[X+d,Y-v],[X,Y]],p[2])+rect(x,y,w,h,p[1]);
+}
+const bolt=(x,y)=>circle(x,y,3.7,palette.steel[0])+line(x-1.8,y+1.2,x+1.8,y-1.2);
+function bolts(x,y,w,h) {return bolt(x,y)+bolt(x+w,y)+bolt(x,y+h)+bolt(x+w,y+h);}
+function row(count,make) {return Array.from({length:count},(_,i)=>make(i)).join('');}
+function roller(x,y){
+  return circle(x,y,12,palette.steel[2])+circle(x,y,8,palette.steel[0])+bolt(x,y);
+}
+function cabinet() {
+  const {brass,steel,sage,glass,coral,paper}=palette;
+  const tube=rect(121,274,96,46,steel[2],11)+rect(126,280,86,34,glass[0],9)+line(136,285,204,285);
+  const vial=group('cartridge',box(121,246,88,93,10,steel)+rect(128,258,74,67,glass[1],8)+
+    rect(134,284,62,34,coral[1],5)+line(141,289,190,289)+box(122,241,86,13,10,brass)+
+    circle(161,302,3,coral[0])+circle(179,303,3,coral[0])+circle(151,311,2.6,coral[0]));
+  const rail=box(209,318,440,19,12,steel)+line(218,324,640,324)+row(9,i=>bolt(220+i*52,331));
+  const carriage=group('carriage',box(247,269,126,37,13,brass)+rect(253,276,110,19,glass[0],5)+
+    rect(258,280,76,10,coral[1],4)+box(238,278,12,20,9,steel)+roller(269,310)+roller(352,310)+
+    group('sharp',box(368,279,15,17,9,steel)+poly([[382,285],[416,285],[425,290],[382,291]],steel[0])+
+    group('shield',box(320,273,53,26,10,sage)+row(4,i=>line(327+i*9,277,327+i*9,294)))));
+  const entry=box(562,265,17,61,10,paper)+rect(560,284,21,13,steel[2],3)+
+    box(583,255,64,79,8,steel)+rect(590,264,49,58,glass[0],6)+
+    line(598,271,631,271,'opacity=".55"')+label(607,350,'ENTRY SLOT',9.5);
+  const particles=group('particles',row(4,i=>circle(584+i*11,289,3.6,coral[1],`id="dot${i}"`)));
+  const bin=box(648,305,88,77,23,sage)+box(648,296,88,15,23,sage)+rect(655,322,75,45,glass[1],4)+
+    rect(668,305,54,5,steel[2],2)+group('disposed',rect(665,332,54,9,sage[1],2)+line(674,336,713,336))+
+    label(692,361,'SHARPS BIN',8.5);
+  const drawer=group('drawer',box(253,417,352,65,15,brass)+rect(264,429,330,40,paper[0],4)+
+    bolt(269,449)+bolt(588,449)+label(278,445,'GROUP ESTIMATE',9,'start')+
+    label(278,461,'PERCUTANEOUS EXPOSURES',8,'start')+label(580,454,'',21,'end','id="value"'));
+  const flag=group('flag',line(663,165,663,111)+box(665,111,103,31,12,brass)+label(717,131,'REPORT',13)+bolt(663,165));
+  const front=box(101,397,643,61,52,steel)+rect(120,409,113,32,paper[1],4)+label(176,429,'SEALED CHAMBER',9.5)+
+    rect(445,409,151,32,paper[1],4)+label(520,429,'SHARP SAFETY TEST BAY',10)+
+    rect(626,407,98,35,steel[0],4)+row(6,i=>line(641+i*12,415,641+i*12,434));
+  return `<svg id="machine" role="img" aria-label="Isometric sharps safety machine with a transparent sample chamber, carriage, protected disposal bin and evidence drawer" viewBox="0 0 850 540">
+    <g stroke="${ink}" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">
+    ${poly([[63,493],[741,493],[820,446],[822,455],[751,514],[63,514]],shadow,'stroke="none"')}
+    ${box(112,468,66,23,27,steel)}${box(663,468,66,23,27,steel)}${box(79,441,686,27,54,brass)}
+    ${box(91,190,661,239,60,steel)}
+    ${rect(109,210,625,179,glass[1],6)}${rect(116,218,611,162,glass[0],6)}
+    ${line(129,228,714,228,'opacity=".45"')}${line(131,374,716,374,'opacity=".45"')}
+    ${bolts(101,200,641,197)}${rail}${tube}${vial}${entry}${particles}${carriage}${bin}
+    ${front}${drawer}
+    ${box(93,163,654,35,65,brass)}${rect(110,172,162,18,brass[0],3)}${label(191,184,'BLOOD EXPOSURE SAFETY',9.5)}
+    ${rect(321,169,305,23,paper[0],4)}${circle(337,180,4.5,sage[1],'id="lamp"')}${label(350,184,'',12,'start','id="status"')}
+    ${bolt(106,180)}${bolt(736,180)}
+    ${row(9,i=>line(685+i*9,153,694+i*9,147))}
+    ${box(135,128,81,24,35,steel)}${label(173,143,'LOCK',10)}${box(165,107,28,22,14,brass)}
+    ${box(588,142,125,20,27,steel)}${flag}
+    </g></svg>`;
+}
+</script>
+<script>const byId = id => document.getElementById(id);
+const renderMode = new URLSearchParams(location.search).has('render');
+const reduced = matchMedia('(prefers-reduced-motion: reduce)');
+document.body.classList.toggle('render',renderMode);
+const artwork=cabinet();
+const partIds=['cartridge','carriage','sharp','shield','flag','drawer','particles','disposed','lamp','status','value'];
+let moving;
+function mountArtwork(){
+  byId('drawing').innerHTML=artwork;
+  moving=Object.fromEntries(partIds.map(id=>[id,byId(id)]));
+}
+mountArtwork();
+const controls=stages.map((step,i)=>{
+  const li=document.createElement('li');
+  const button=document.createElement('button');
+  button.type='button'; button.className='step';
+  button.innerHTML='<span class="num" aria-hidden="true">'+(i+1)+'</span><span>'+step.name+'</span>';
+  li.append(button); byId('steps').append(li); return button;
+});
+let clock=0,animation=0,mode='manual',running=false,expected=0;
+const setText = (el,value)=>{if(el.textContent!==value) el.textContent=value;};
+function draw(state,guided) {
+  const {pose:p,display:d,index,time,returned}=state;
+  moving.cartridge.setAttribute('transform','translate(0 '+(24*(1-p.load))+')');
+  moving.cartridge.setAttribute('opacity',String(.36+.64*p.load));
+  moving.carriage.setAttribute('transform','translate('+(146*p.travel)+' 0'+')');
+  moving.sharp.setAttribute('opacity',String(1-p.tray));
+  moving.shield.setAttribute('transform','translate('+(57*p.cover)+' 0)');
+  moving.drawer.setAttribute('transform','translate(0 '+(47*p.drawer)+')');
+  moving.drawer.setAttribute('opacity',String(p.drawer));
+  moving.flag.setAttribute('transform','translate(0 '+(30*(1-p.flag))+')');
+  moving.flag.setAttribute('opacity',String(p.flag));
+  moving.disposed.setAttribute('opacity',String(p.tray));
+  moving.particles.setAttribute('opacity',String(smooth((p.travel-.93)/.07)));
+  for(let i=0;i<4;i++){
+    const progress=(time*.72+i*.25)%1;
+    const dot=byId('dot'+i);
+    dot.setAttribute('cx',584+50*progress);
+    dot.setAttribute('opacity',smooth(progress/.13)*smooth((1-progress)/.13));
+  }
+  moving.lamp.setAttribute('fill',state.assessment==='Possible exposure'?palette.coral[1]:palette.sage[1]);
+  setText(moving.status,state.readout);
+  setText(moving.value,state.cohort);
+  setText(byId('heading'),d.heading);
+  setText(byId('copy'),d.copy);
+  setText(byId('note'),d.note);
+  setText(byId('cite'),d.cite[0]+' ↗');
+  byId('cite').href=d.cite[1];
+  setText(byId('assessment'),state.assessment);
+  setText(byId('reading'),index===3?'Historical estimate · '+state.evidence.percent+'%':state.readout);
+  setText(byId('takeaway'),state.takeaway);
+  controls.forEach((button,i)=>{
+    const available=i===(guided?state.next:expected);
+    button.disabled=renderMode||guided||running||!available;
+    const current=i===index&&!returned&&state.next===-1;
+    button.dataset.mode=current?'current':available?'next':i<index&&!returned?'done':'idle';
+    if(current) button.setAttribute('aria-current','step'); else button.removeAttribute('aria-current');
+  });
+  const cursor=byId('cursor');
+  const from=controls[Math.max(0,index)];
+  const to=controls[Math.min(index+1,controls.length-1)];
+  const travel=smooth((time-(stages[index]?.end??.20))/.7);
+  const y=mix(from.offsetTop,to.offsetTop,travel)+7;
+  const push=smooth((state.local)/.1)*(1-smooth((state.local-.1)/.18));
+  cursor.style.transform='translate('+(7*push)+'px,'+y+'px) scale('+(1-.18*push)+')';
+  cursor.style.opacity=guided?String(smooth(time/.7)*(1-smooth((time-35)/.7))):'0';
+}
+function stop(){if(animation)cancelAnimationFrame(animation);animation=0;running=false;}
+function seek(t){
+  stop();
+  mode='tour';
+  clock=modelAt(t).time;
+  const state=modelAt(clock);
+
+  draw(state,true);
+  return state;
+}
+function animate(start,end,kind){
+  stop();
+  mode=kind;
+  running=true;
+  const begin=performance.now();
+  const speed=kind==='manual'?2.5:1;
+  const tick=now=>{
+    clock=Math.min(end,start+(now-begin)*speed/1000);
+    if(clock>=end){running=false;animation=0;}
+    draw(modelAt(clock),kind==='tour');
+    if(running) animation=requestAnimationFrame(tick);
+    else setText(byId('play'),'Play 36 s tour');
+  };
+  draw(modelAt(start),kind==='tour');
+  animation=requestAnimationFrame(tick);
+}
+window.seek=seek;
+window.modelAt=modelAt;
+if(renderMode) seek(0);
+else {
+  draw(modelAt(0),false);
+  controls.forEach((button,i)=>button.addEventListener('click',()=>{
+    if(running||i!==expected)return;
+    expected=i===controls.length-1?0:i+1;
+    const step=stages[i];
+    if(reduced.matches){clock=step.end;draw(modelAt(clock),false);}
+    else animate(step.start,step.end,'manual');
+  }));
+  byId('play').addEventListener('click',()=>{
+    if(running&&mode==='tour'){
+      stop();
+      setText(byId('play'),'Resume tour');
+      return;
+    }
+    if(reduced.matches){seek(duration);return;}
+    const resume=mode==='tour'&&clock>0&&clock<duration;
+    animate(resume?clock:0,duration,'tour');
+    setText(byId('play'),'Pause tour');
+  });
+}
+</script>
+</body></html>

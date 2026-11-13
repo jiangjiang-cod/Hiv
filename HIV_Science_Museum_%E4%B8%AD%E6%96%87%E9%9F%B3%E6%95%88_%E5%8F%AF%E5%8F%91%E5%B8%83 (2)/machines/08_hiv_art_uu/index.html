@@ -1,0 +1,331 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ART &amp; U=U Viral Load Machine</title>
+<style>
+:root{color-scheme:light;--ink:#26364a;--paper:#f5f0e5;--shadow:#ddd4c3;--rule:#b8aa91;--pale:#fbf6e8;--sage:#dbe5cf;--gold:#ebc27a}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font:16px/1.55 system-ui,sans-serif}
+main{max-width:1370px;padding:46px 36px 40px;margin:auto}
+h1,h2{font-family:Georgia,serif}
+h1{font-size:clamp(2.3rem,5.4vw,4.7rem);letter-spacing:-.062em;line-height:1.05;margin:.1em 0}
+h2{line-height:1.14;font-size:1.55rem;margin:0 0 .7em}
+header{border-block:1.2px solid var(--rule);padding:16px 0 20px;margin-bottom:22px}
+header p{margin:6px 0 0}
+.eyebrow{font-weight:750;letter-spacing:.18em;font-size:.71rem;text-transform:uppercase}
+.workspace{display:grid;grid-template-columns:minmax(168px,1fr) minmax(0,4.4fr) minmax(215px,1.42fr);gap:18px;align-items:start}
+nav,figure,aside{min-width:0}
+nav .eyebrow{margin:0 0 7px}
+#steps{display:grid;gap:8px;position:relative}
+button{font:inherit;font-size:.81rem;font-weight:700;color:var(--ink);cursor:pointer;border:1.2px solid var(--ink);border-radius:6px;background:var(--gold);box-shadow:2px 3px var(--shadow);padding:8px 9px}
+.step{display:flex;align-items:center;gap:7px;min-height:45px;text-align:left}
+.step:disabled{cursor:default;background:#eae5d7;color:#59554b;border-color:#9b9382}
+.step[aria-current="step"]{background:#e9be78;border-color:var(--ink);color:var(--ink)}
+.step[data-done="true"]{background:#dce3d2;color:#37453d}
+.step span{flex:none;display:inline-grid;place-items:center;width:19px;height:19px;border:1px solid currentColor;border-radius:50%;font-size:.67rem}
+button:focus-visible,a:focus-visible{outline:2px solid var(--ink);outline-offset:3px}
+#tour{margin-top:14px;background:#f4e5c2}
+#pause{margin-top:8px;background:#e2e9d8}
+#pause:disabled{opacity:.6;cursor:default}
+html.render #tour,html.render #pause{visibility:hidden}
+#cursor{pointer-events:none;position:absolute;width:34px;height:34px;right:-15px;top:0;z-index:2;overflow:visible}
+#cursor[hidden]{display:none}
+figure{margin:0}
+.drawing{border:1.2px solid var(--rule);border-radius:8px;padding:10px;background:#f7f1e3}
+.drawing .eyebrow{margin:0 0 0 6px}
+.machine{display:block;width:100%;height:auto}
+.machine :is(path,polygon,circle,rect,line){stroke-linecap:round;stroke-linejoin:round}
+.machine :is(path,polygon,circle,rect,line):not([stroke]){stroke:var(--ink)}
+.machine :is(path,polygon,circle,rect,line):not([stroke-width]){stroke-width:1.2}
+.machine clipPath rect{stroke:none}
+.machine text{fill:var(--ink);stroke:none}
+.engraving{font-size:9px;font-weight:800;letter-spacing:.04em}
+.meterText{font-size:11.8px;font-weight:720}
+.dialText{font-size:12px;font-weight:820}
+figcaption{font-size:.79rem;padding:0 6px 5px}
+aside{background:var(--pale);border:1.2px solid var(--ink);box-shadow:3px 3px var(--shadow);border-radius:8px;padding:13px 14px}
+aside p{font-size:.88rem;margin:0 0 10px}
+aside a{font-size:.77rem;font-weight:700;color:inherit;text-underline-offset:3px}
+.chips{display:flex;flex-wrap:wrap;gap:7px;margin:13px 0 16px}
+.chips span{font-size:.75rem;background:#f3e7cd;border:1px solid var(--rule);padding:3px 9px;border-radius:14px}
+#idea{margin:0;padding:11px 0 0;border-top:1.2px solid var(--rule);font:700 1.13rem/1.5 Georgia,serif}
+@media(max-width:930px){.workspace{grid-template-columns:157px minmax(0,1fr)}aside{grid-column:2}main{padding:32px 18px}}
+@media(max-width:550px){.workspace{grid-template-columns:1fr}aside{grid-column:1}#steps{gap:6px}.step{min-height:40px}#cursor{right:3px}main{padding:22px 14px}.drawing{padding:5px}figcaption{font-size:.74rem}}
+</style>
+</head>
+<body>
+<main>
+<header><div class="eyebrow">HIV education workshop · machine 08</div><h1>ART &amp; U=U Viral Load Machine</h1><p>Watch treatment slow HIV replication, then see what the lab results mean.</p></header>
+<div class="workspace">
+<nav aria-label="Machine steps"><div class="eyebrow">Operate the machine</div><div id="steps"></div><button id="tour">Play the guided tour</button><button id="pause" disabled>Pause</button></nav>
+<figure><div class="drawing"><div class="eyebrow">Cutaway · infected cell and lab meter</div><svg class="machine" viewBox="67 31 688 425" role="img" aria-labelledby="machine-title machine-desc"></svg><figcaption>Teaching model. Coral marks represent new viral copies, and the dial shows hypothetical lab results.</figcaption></div></figure>
+<aside aria-label="Field notes"><div class="eyebrow">Field notes</div><h2 id="note-title"></h2><p id="action"></p><p id="fact"></p><p id="scope"></p><a id="source" target="_blank" rel="noopener"></a></aside>
+</div>
+<div class="chips" aria-label="Current results"><span id="art-chip"></span><span id="record-chip"></span><span id="uu-chip"></span></div>
+<p id="idea"></p>
+</main>
+<script>
+/* A categorical teaching model. Time is the tour clock, never a clinical timeline. */
+const THRESHOLD = 200;
+const UNIT = 'copies/mL';
+const DURATION = 36;
+const NIH = 'https://clinicalinfo.hiv.gov/en/guidelines/hiv-clinical-guidelines-adult-and-adolescent-arv/arv-therapy-as-prevention';
+const BASICS = 'https://hivinfo.nih.gov/understanding-hiv/fact-sheets/hiv-treatment-basics';
+const CDC = 'https://www.cdc.gov/hiv/treatment/index.html';
+const STEPS = [
+  {name:'Watch HIV copy itself', start:.9, end:5.5, pos:[0,1,0,0,0], art:false, read:'unread', title:'Inside an infected cell', action:'The brass copy wheel starts turning in the cutaway.', fact:'HIV makes new copies inside infected cells. Viral load measures how much HIV RNA is in a sample of blood plasma.', note:'The wheel and coral marks illustrate copying. They are not measurements.', source:BASICS},
+  {name:'Start ART', start:6.2, end:11.1, pos:[1,.12,0,0,0], art:true, read:'unread', title:'Treatment slows copying', action:'The treatment lever engages a reduction gear. Fewer copy marks come through the window.', fact:'Antiretroviral therapy (ART) interferes with HIV replication. Effective treatment reduces viral load over time.', note:'The gear is an analogy for effects inside cells. The motion is not a prediction of how quickly treatment works.', source:BASICS},
+  {name:'Read one result', start:11.8, end:16.2, pos:[1,.12,1,0,0], art:true, read:'below', title:'One result below the line', action:'The dial moves into the below-threshold region and the first lab tab rises.', fact:'One hypothetical lab result is below the guideline threshold. A single result by itself does not document that suppression has been maintained.', note:'Keep taking ART as prescribed and have viral load monitored with your care team.', source:NIH},
+  {name:'Check the boundary', start:16.9, end:21.2, pos:[1,.12,.65,0,0], art:true, read:'equal', title:'Exactly on the line', action:'A separate teaching sample moves the pointer back to the threshold mark.', fact:`Exactly ${THRESHOLD} ${UNIT} is not below ${THRESHOLD}. NIH uses a strict less-than threshold.`, note:'This comparison is a separate teaching example. It does not depict treatment failure or predict transmission.', source:NIH},
+  {name:'Confirm sustained suppression', start:21.9, end:27.2, pos:[1,.12,1,1,0], art:true, read:'below', history:true, title:'Suppression over time', action:'The second lab tab rises and the sexual-transmission indicator turns green.', fact:`Maintaining a viral load below ${THRESHOLD} ${UNIT} on effective ART prevents sexual transmission of HIV. This is U=U: Undetectable = Untransmittable.`, note:'This example assumes ongoing ART and documented sustained suppression. The lab tabs stand for follow-up over time.', source:NIH},
+  {name:'Check which route', start:27.9, end:32.1, pos:[1,.12,1,1,1], art:true, read:'below', history:true, title:'What U=U covers', action:'A scope drawer slides out beneath the meter.', fact:'The U=U conclusion covers sexual HIV transmission. It cannot be extended to breastfeeding or sharing injection equipment.', note:'Continue ART and follow-up. Ask a care team about infant feeding or safer injection guidance when relevant.', source:CDC},
+  {name:'Reset the machine', start:32.8, end:36, pos:[0,0,0,0,0], art:false, read:'unread', title:'Return to standby', action:'The drawer, lab tabs, lever and dial return home.', fact:'The viral-load meter is ready for another demonstration.', note:'All displayed readings are teaching examples.', source:NIH}
+];
+const STANDBY = {title:'Ready to begin', action:'The copy wheel is parked.', fact:'Follow how effective HIV treatment changes the amount of virus in the blood and what that means for sexual transmission.', note:'Operate the switches in order or play the guided tour.', source:NIH, pos:[0,0,0,0,0]};
+const unitValue = value => `${value} ${UNIT}`;
+const isUU = ({art, below, sustained, route}) => art === true && below === true && sustained === true && route === 'sexual';
+const clamp = (n, min=0, max=1) => Math.min(max, Math.max(min, n));
+const ease = n => { const x=clamp(n); return x*x*(3-2*x); };
+const integral = n => { const x=clamp(n); return x*x*x*(1-x/2); };
+const poses = [STANDBY,...STEPS];
+const moveTime = [1.65, 3.65, 2.05, 2.05, 2.45, 2.65, 2.05];
+function phaseAt(seconds) {
+  let phase=0;
+  for(let i=0; i<STEPS.length; i++){
+    const elapsed = Math.max(0,seconds-STEPS[i].start);
+    const duration=STEPS[i].end-STEPS[i].start;
+    const dt=Math.min(duration,elapsed);
+    const transition=moveTime[i];
+    const previous=poses[i].pos[1], current=poses[i+1].pos[1];
+    phase+=previous*dt+(current-previous)*(integral(dt/transition)*transition+Math.max(0,dt-transition));
+    if(i<STEPS.length-1) phase+=current*clamp(seconds-STEPS[i].end,0,STEPS[i+1].start-STEPS[i].end);
+  }
+  return phase;
+}
+function modelAt(seconds) {
+  const t = clamp(Number.isFinite(seconds) ? seconds : 0, 0, DURATION);
+  const index = STEPS.findLastIndex(step=>t>=step.start);
+  const step = STEPS[index] ?? STANDBY;
+  const local = index<0 ? 0 : t-step.start;
+  const motion = index<0 ? 0 : ease(local/moveTime[index]);
+  const [lever,copy,dial,labs,drawer] = step.pos.map((end,i)=>index<0 ? end : poses[index].pos[i]+(end-poses[index].pos[i])*motion);
+  const done = index===6 && local>=moveTime[6];
+  const known = index>=2 && index<=5 && (index===5 || motion>=1);
+  const below = known && step.read==='below';
+  const sustained = known && step.history===true;
+  const art = index>=1 && index<=5;
+  const uu = isUU({art,below,sustained,route:'sexual'});
+  const result = known ? unitValue(step.read==='equal' ? THRESHOLD : '<'+THRESHOLD) : '—';
+  const record = known ? (sustained ? 'Sustained below threshold' : below ? 'Single result below threshold' : 'At threshold') : 'No lab result shown';
+  const cursor = index<0 ? 0 : index<6 ? index+ease((t-step.end)/(STEPS[index+1].start-step.end)) : 6;
+  const pulse = clamp(local/.24);
+  const press = index<0 ? 0 : 16*pulse*pulse*(1-pulse)*(1-pulse);
+  const note = done ? STANDBY : step;
+  return {t,index,local,lever,copy,dial,labs,drawer, phase:phaseAt(t), known, below, sustained, art, uu,result,record,cursor,press,done,note,
+    threshold:unitValue(THRESHOLD), criterion:unitValue('<'+THRESHOLD),
+    lesson:'The big idea: HIV treatment that keeps viral load below '+unitValue(THRESHOLD)+' prevents sexual transmission.',
+    outcome:uu?'U=U · sexual transmission prevented':'U=U · conditions not shown'};
+}
+if(typeof module!=='undefined')module.exports={modelAt,isUU,STEPS,DURATION,THRESHOLD};
+
+const colors={sage:['#e1e8d5','#b3c3a8','#8ca487'],gold:['#fae1a5','#e8b969','#b78952'],steel:['#e8eeee','#bac9c8','#91a5a5']};
+const svg=(name,attrs,content='')=>'<'+name+' '+Object.entries(attrs).map(([key,value])=>key+'="'+value+'"').join(' ')+'>'+content+'</'+name+'>';
+const circle=(cx,cy,r,fill,attrs={})=>svg('circle',{cx,cy,r,fill,...attrs});
+const rect=(x,y,width,height,fill,rx=3,attrs={})=>svg('rect',{x,y,width,height,fill,rx,...attrs});
+const line=(x1,y1,x2,y2,attrs={})=>svg('line',{x1,y1,x2,y2,...attrs});
+const path=(d,fill='none',attrs={})=>svg('path',{d,fill,...attrs});
+const text=(x,y,value,attrs={})=>svg('text',{x,y,...attrs},value);
+const group=(id,content)=>svg('g',{id},content);
+const bolts=(x,y,w,h)=>[[x,y],[x+w,y],[x,y+h],[x+w,y+h]].map(([px,py])=>circle(px,py,3,'#e9eddf')+line(px-1,py+1,px+1,py-1)).join('');
+const plate=(x,y,w,h,label,fill='#f6ebce')=>rect(x,y,w,h,fill)+text(x+w/2,y+h/2+3.7,label,{'text-anchor':'middle',class:'engraving'});
+function body(x,y,w,h,d,palette) {
+  const depth=d*.577;
+  return path(`M${x} ${y}l${d} ${-depth}h${w}l${-d} ${depth}Z`,palette[0])+
+    path(`M${x+w} ${y}l${d} ${-depth}v${h}l${-d} ${depth}Z`,palette[2])+
+    rect(x,y,w,h,palette[1],1);
+}
+function gear(id,x,y,r,teeth,fill) {
+  const points=Array.from({length:teeth*4},(_,i)=>{
+    const a=i*Math.PI/(2*teeth), radius=i%4===1||i%4===2?r:r-4;
+    return (x+Math.cos(a)*radius).toFixed(2)+','+(y+Math.sin(a)*radius).toFixed(2);
+  });
+  return group(id,svg('polygon',{points:points.join(' '),fill})+circle(x,y,r*.59,'#f6ebce')+
+    Array.from({length:5},(_,i)=>circle(x+Math.cos(i*2*Math.PI/5)*r*.39,y+Math.sin(i*2*Math.PI/5)*r*.39,r*.102,fill)).join('')+
+    circle(x,y,r*.16,'#c8d5cf'));
+}
+const tick=(x,y,a,r1,r2)=>line(x+Math.cos(a)*r1,y+Math.sin(a)*r1,x+Math.cos(a)*r2,y+Math.sin(a)*r2);
+const ticks=Array.from({length:13},(_,i)=>tick(537.5,232,Math.PI*(.8+i*.1166666667),38,i%3===0?44:41)).join('');
+const tube=path('M101 325H150Q164 325 164 311V274Q164 258 180 258H206','none',{stroke:'#253247','stroke-width':13})+
+  path('M101 325H150Q164 325 164 311V274Q164 258 180 258H206','none',{stroke:'#d2e0da','stroke-width':10.6})+
+  path('M105 322H150Q161 322 161 309V273Q161 255 180 255H200','none',{stroke:'#eff5e9','stroke-width':2.2});
+function machineArt(){
+  return [
+    '<title id="machine-title">ART and U=U precision teaching meter</title><desc id="machine-desc">A cutaway copy wheel slows with ART, while a separate viral-load dial and lab tabs illustrate when U=U applies.</desc>',
+    path('M63 409H659L733 368L751 376L665 430H83Z','#ddd4c3',{stroke:'none'}),
+    body(109,385,73,20,23,colors.steel),body(564,385,70,20,23,colors.steel),
+    body(80,352,558,35,79,colors.gold),body(98,126,520,227,90,colors.sage),
+    body(123,101,243,27,42,colors.steel),
+    plate(133,108,224,15,'ART  /  VIRAL LOAD METER'),
+    path('M620 154l70-39m-70 51 70-39m-70 51 70-39m-70 51 70-39m-70 51 70-39', 'none',{stroke:'#52695d'}),
+    body(474,99,91,28,49,colors.gold),plate(482,106,75,15,'ART LEVER'),
+    group('lever',line(518,99,518,73,{'stroke-width':5.2,stroke:'#26364a'})+line(518,98,518,73,{'stroke-width':2.7,stroke:'#bfcac7'})+circle(518,68,9,'#e8b969')+path('M514 65q3-3 6 0','none',{stroke:'#fbebba'})),
+    rect(114,150,344,184,'#7d9990',9),rect(122,158,328,168,'#d6e4d5',5),
+    rect(130,166,312,152,'#e8efe0',5),bolts(120,156,332,172),
+    path('M132 304H440v12H132Z','#b6caba'),
+    path('M139 171h125m-125 5h80m174 133h40', 'none',{stroke:'#fffaf0','stroke-width':2.2}),
+    rect(133,174,97,21,'#e7c88c',3),plate(137,177,89,15,'COPY CELL'),
+    rect(137,218,55,38,'#bdcfc0',4),plate(141,224,47,17,'RNA'),
+    tube,rect(140,318,8,13,'#b6c4bd'),rect(169,264,14,8,'#b6c4bd'),
+    path('M205 214Q228 183 278 186Q330 188 363 212Q392 238 373 272Q354 307 293 307Q248 309 218 285Q190 264 205 214Z','#c4d3b8'),
+    path('M217 218Q239 198 281 197Q328 200 350 219Q374 243 359 269Q336 295 291 295Q250 296 227 278Q208 257 217 218Z','#dbe5c9'),
+    path('M260 224q10-12 27 0t25 0', 'none',{stroke:'#8eaa88'}),
+    gear('copy-gear',274,250,31,12,'#d6a05d'),gear('control-gear',317,266,16,10,'#c3d0c6'),
+    path('M337 252H432M337 279H432','none',{stroke:'#7c9b83'}),
+    group('marks',Array.from({length:5},(_,i)=>group('mark'+i,circle(0,0,5,'#d68c7b')+circle(0,0,1.6,'#f6c7ae'))).join('')),
+    plate(331,207,101,19,'NEW COPIES'),
+    body(474,145,127,172,15,colors.steel),bolts(483,154,109,154),
+    text(537.5,173,'PLASMA HIV RNA',{'text-anchor':'middle',class:'engraving'}),
+    circle(537.5,232,51,'#8eaa9e'),circle(537.5,232,46,'#f9f1d9'),
+    group('dial-ticks',ticks+line(537.5,188,537.5,198,{stroke:'#9d634c','stroke-width':2.3})),
+    path('M511 259A38 38 0 0 1 537.5 194','none',{stroke:'#adc1a4','stroke-width':4}),
+    group('needle',path('M537.5 236l-2.6-5 2.6-30 2.6 30Z','#b67757')+circle(537.5,232,4,'#d5aa65')),
+    text(537.5,258,'GUIDELINE LINE',{'text-anchor':'middle',class:'engraving'}),
+    rect(484,279,106,23,'#f6ebce'),text(537.5,295,'',{'text-anchor':'middle',id:'threshold',class:'dialText'}),
+    body(105,335,493,44,24,colors.steel),
+    rect(116,344,173,24,'#faf0d8'),text(127,359,'', {id:'reading',class:'meterText'}),
+    rect(296,344,290,24,'#faf0d8'),circle(309,356,4.5,'#d9cbb0',{id:'lamp'}),text(321,359,'',{id:'lampText',class:'meterText'}),
+    group('lab-a',body(375,103,39,41,15,colors.gold)+plate(379,117,31,16,'LAB A')),
+    group('lab-b',body(419,103,39,41,15,colors.gold)+plate(423,117,31,16,'LAB B')),
+    svg('clipPath',{id:'drawer-clip'},rect(149,387,434,67,'#fff',0)) + svg('g',{'clip-path':'url(#drawer-clip)'},group('drawer',body(166,386,390,43,29,colors.gold)+rect(176,396,369,24,'#f8ebc9')+
+      text(188,411,'SCOPE', {class:'engraving'})+text(238,411,'Sexual HIV transmission', {class:'meterText'})+
+      rect(504,401,28,9,'#b9c7c1',2))),
+    bolts(91,369,536,8)
+  ].join('');
+}
+
+const $=id=>document.getElementById(id);
+const renderMode=new URLSearchParams(location.search).has('render');
+const motionQuery=matchMedia('(prefers-reduced-motion: reduce)');
+document.documentElement.classList.toggle('render',renderMode);
+const machine=document.querySelector('.machine');
+machine.innerHTML=machineArt();
+const buttons=STEPS.map((step,index)=>{
+  const button=document.createElement('button');
+  button.className='step';
+  button.type='button';
+  const number=document.createElement('span');
+  number.textContent=index+1;
+  number.setAttribute('aria-hidden','true');
+  button.append(number,step.name);
+  $('steps').append(button);
+  return button;
+});
+const hand=document.createElementNS('http://www.w3.org/2000/svg','svg');
+hand.id='cursor';
+hand.setAttribute('viewBox','0 0 40 40');
+hand.setAttribute('aria-hidden','true');
+hand.innerHTML='<path d="M33 16c0-2-2-3-4-2l-6 4 3-9c1-2-2-4-3-1l-6 11H7c-3 0-3 4 0 4h9l5 8c2 3 7 2 9 0l5-8c2-2 1-5-2-7Z" fill="#edbd71" stroke="#26364a" stroke-width="1.2" stroke-linejoin="round"/><path d="m24 20 6-4m-5 9 8-5" fill="none" stroke="#26364a" stroke-width="1.2" stroke-linecap="round"/>';
+$('steps').append(hand);
+const setText=(id,value)=>{if($(id).textContent!==value)$(id).textContent=value;};
+const transform=(id,value)=>$(id).setAttribute('transform',value);
+const fade=(id,value)=>$(id).setAttribute('opacity',value);
+const format=n=>n.toFixed(4);
+let clock=0, frame=0, goal=0, mode='manual', next=0, active=false, paused=false;
+function draw(state, guided) {
+  transform('lever','rotate('+format(30*state.lever)+' 518 99)');
+  transform('copy-gear','rotate('+format(state.phase*91%360)+' 274 250)');
+  transform('control-gear','rotate('+format(-state.phase*145%360)+' 317 266)');
+  transform('needle','rotate('+format(78-120*state.dial)+' 537.5 232)');
+  transform('lab-a','translate(0 '+format(-29*state.dial)+')');
+  transform('lab-b','translate(0 '+format(-27*state.labs)+')');
+  fade('lab-a',format(ease(state.dial*2)));
+  fade('lab-b',format(state.labs));
+  transform('drawer','translate(0 '+format(-44+45*state.drawer)+')');
+  for(let i=0;i<5;i++){
+    const p=(state.phase*.95+i*.2)%1;
+    transform('mark'+i,'translate('+format(339+87*p)+' '+format(265+2*Math.sin(8*p+i))+')');
+    const envelope=ease(p/.14)*ease((1-p)/.17)*ease(state.copy*8);
+    const retained=i===0?1:ease((state.copy-.12)*2.5);
+    fade('mark'+i,format(envelope*retained));
+  }
+  setText('threshold',state.threshold);
+  setText('reading',state.result);
+  setText('lampText',state.outcome);
+  $('lamp').setAttribute('fill',state.uu?'#8da685':'#d9cbb0');
+  setText('note-title',state.note.title);
+  setText('action',state.note.action);
+  setText('fact',state.note.fact);
+  setText('scope',state.note.note);
+  $('source').href=state.note.source;
+  setText('source',state.note.source===CDC?'CDC · Treating HIV ↗':state.note.source===BASICS?'NIH · HIV treatment basics ↗':'NIH · Treatment as prevention ↗');
+  setText('art-chip',state.art?'ART on in this example':'ART off in this example');
+  setText('record-chip',state.record);
+  setText('uu-chip',state.outcome);
+  setText('idea',state.lesson);
+  buttons.forEach((button,index)=>{
+    const current=state.index===index&&!state.done;
+    button.toggleAttribute('aria-current',current);
+    if(current)button.setAttribute('aria-current','step');
+    button.dataset.done=String(index<state.index&&!state.done);
+    button.disabled=renderMode||active||paused||index!==next;
+  });
+  hand.toggleAttribute('hidden',!guided||state.done);
+  const start=buttons[Math.floor(state.cursor)], end=buttons[Math.ceil(state.cursor)];
+  const pos=start.offsetTop+start.offsetHeight/2+
+    ((end.offsetTop+end.offsetHeight/2)-(start.offsetTop+start.offsetHeight/2))*(state.cursor%1);
+  hand.setAttribute('style','transform:translate('+format(-7*state.press)+'px,'+format(pos-17)+'px)');
+  return state;
+}
+function stop(){
+  if(frame)cancelAnimationFrame(frame);
+  frame=0;active=false;paused=false;
+  $('pause').disabled=true;
+  setText('pause','Pause');
+}
+function update(time,guided){
+  clock=clamp(time,0,DURATION);
+  return draw(modelAt(clock),guided);
+}
+window.seek=function seek(time){
+  if(!renderMode)stop();
+  return update(time,true);
+};
+window.viralLoadModel=modelAt;
+function play(from,to,kind){
+  stop();
+  mode=kind;
+  goal=to;
+  if(kind==='manual'&&motionQuery.matches){update(to,false);return;}
+  active=true;
+  $('pause').disabled=false;
+  const started=performance.now();
+  update(from,kind==='guided');
+  const tick=now=>{
+    const time=Math.min(to,from+(now-started)/1000);
+    if(time===to)stop();
+    update(time,kind==='guided');
+    if(active)frame=requestAnimationFrame(tick);
+  };
+  frame=requestAnimationFrame(tick);
+}
+if(!renderMode){
+  buttons.forEach((button,index)=>button.addEventListener('click',()=>{
+    if(active||paused||index!==next)return;
+    next=(index+1)%buttons.length;
+    play(STEPS[index].start,STEPS[index].end,'manual');
+  }));
+  $('tour').addEventListener('click',()=>{next=0;play(0,DURATION,'guided');});
+  $('pause').addEventListener('click',()=>{
+    if(paused){play(clock,goal,mode);return;}
+    if(frame)cancelAnimationFrame(frame);
+    frame=0;active=false;paused=true;
+    setText('pause','Resume');
+    update(clock,mode==='guided');
+  });
+}
+update(0,renderMode);
+
+</script>
+</body>
+</html>

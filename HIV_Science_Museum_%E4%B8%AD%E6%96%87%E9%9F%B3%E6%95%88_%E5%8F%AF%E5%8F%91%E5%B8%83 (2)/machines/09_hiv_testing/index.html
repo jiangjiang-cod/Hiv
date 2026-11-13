@@ -1,0 +1,365 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>HIV Testing &amp; Myth Detection Machine</title>
+<style>
+:root{color-scheme:light;--paper:#f5f0e5;--ink:#223047;--shadow:#ddd4c3;--sage:#dce6cc;--brass:#e5b968}
+*{box-sizing:border-box}
+body{margin:0;color:var(--ink);background:var(--paper);font:17px/1.45 Georgia,serif}
+main{max-width:1400px;margin:0 auto;padding:54px 34px 28px}
+header{border-block:1.2px solid #b8ab95;padding:14px 0 20px;margin-bottom:23px}
+.eyebrow{margin:0 0 8px;letter-spacing:.16em;text-transform:uppercase;font:700 11px/1.25 system-ui;letter-spacing:.17em}
+h1{font-size:clamp(2.4rem,5vw,4.15rem);line-height:1.02;letter-spacing:-.055em;margin:0 0 9px}
+header p:last-child{margin:0}
+.grid{display:grid;grid-template-columns:190px minmax(0,1fr) 237px;gap:19px;align-items:start}
+nav{position:relative}
+#steps{display:grid;gap:8px;padding:0;margin:0;list-style:none}
+button{color:var(--ink);background:#f4ecd8;border:1.2px solid var(--ink);box-shadow:2px 2px 0 var(--shadow);font:650 13px/1.24 system-ui;border-radius:7px;cursor:pointer;padding:8px}
+button:focus-visible,a:focus-visible{outline:3px solid #487568;outline-offset:3px}
+.step{width:100%;min-height:45px;display:flex;gap:8px;align-items:center;text-align:left}
+.step b{border:1.2px solid currentColor;border-radius:50%;width:24px;height:24px;display:grid;place-items:center;flex-shrink:0;font-size:11px}
+button:disabled{cursor:default}
+.step:disabled{background:#eae3d5;color:#514b41;border-color:#ac9e86}
+.step.complete{background:#dee5d2;color:#414d42}
+.step:not(:disabled),.step.pressed{background:var(--brass);color:#273047;border-color:var(--ink)}
+#tour,#pause{margin-top:14px}
+#pause:disabled{opacity:.47}
+.render #tour,.render #pause{visibility:hidden}
+#hand[hidden]{display:none}
+#hand{position:absolute;top:0;left:0;width:36px;pointer-events:none;z-index:2}
+figure{margin:0;border:1.2px solid #b8ab95;border-radius:8px;background:#f8f2e4;overflow:hidden;box-shadow:3px 3px 0 var(--shadow)}
+figure .eyebrow{margin:13px 14px 0}
+.machine{display:block;width:100%;height:auto;stroke:var(--ink);stroke-width:1.2;stroke-linejoin:round;stroke-linecap:round}
+.machine text{fill:var(--ink);stroke:none;font-family:system-ui,sans-serif;font-weight:750;letter-spacing:.025em}
+figcaption{margin:0 14px 13px;color:#394637;font:12px/1.3 system-ui}
+aside{background:#fbf5e7;border:1.2px solid #b1a18b;border-radius:8px;padding:15px 16px;box-shadow:3px 3px 0 var(--shadow);min-height:368px}
+aside h2{font-size:24px;line-height:1.04;margin:0 0 13px}
+aside p{font:14px/1.42 system-ui;margin:0 0 12px}
+aside a{display:block;font:650 12px/1.4 system-ui;color:var(--ink);text-underline-offset:3px}
+#mythList{font:12px/1.35 system-ui;columns:2;padding-left:16px;margin:0 0 10px}
+#mythList li{margin-bottom:3px;break-inside:avoid}
+#mythList .selected{font-weight:750}
+#mythNote{background:var(--sage);padding:7px 8px;border-radius:4px}
+.windows{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:11px}
+.windows div{font:650 11px/1.25 system-ui;border:1px solid #aca28c;background:#f1e7d0;border-radius:5px;padding:6px 7px}
+.windows strong{display:block;font-size:14px}
+footer{margin-top:20px;border-top:1.2px solid #b8ab95;padding-top:12px}
+footer p{margin:0}
+footer small{font:12px system-ui}
+footer.done{background:#f0d9a7}
+@media(max-width:1050px){.grid{grid-template-columns:165px minmax(0,1fr)}aside{grid-column:2;min-height:0}}
+@media(max-width:620px){main{padding:24px 14px}.grid{grid-template-columns:minmax(0,1fr)}aside{grid-column:auto}.step{min-height:37px}#steps{gap:6px}}
+</style>
+<script>'use strict';
+const CDC_TEST='https://www.cdc.gov/hiv/testing/index.html';
+const CDC_PARTNERS='https://www.cdc.gov/hivpartners/php/hiv-testing/index.html';
+const CDC_ROUTES='https://www.cdc.gov/hiv/causes/index.html';
+const TESTS=Object.freeze({
+  lab:Object.freeze({name:'Lab antigen/antibody',min:18,max:45,targets:['p24 antigen','Antibodies'],source:CDC_TEST}),
+  nat:Object.freeze({name:'Nucleic acid test (NAT)',min:10,max:33,targets:['HIV RNA'],source:CDC_PARTNERS})
+});
+const MYTHS=Object.freeze([
+  ['Shaking hands','Intact skin and an ordinary handshake do not provide an HIV exposure route.'],
+  ['Hugging','Ordinary hugs do not expose anyone to a fluid that can transmit HIV.'],
+  ['Sharing meals','Sharing meals and utensils is safe. HIV does not spread through ordinary shared food.'],
+  ['Mosquito bites','Mosquitoes do not transmit HIV. Their bites do not inject another person’s blood.']
+].map(Object.freeze));
+const STEPS=Object.freeze([
+  {label:'Load a teaching sample',title:'Meet the two detectors',copy:'The sample tray moves into the cutaway. Different tests look for different signs of HIV in a blood sample. The symbols show what each detector looks for.',tip:'The clock represents days since possible exposure. The tray carries teaching symbols, never a test result.',source:CDC_TEST,sourceName:'CDC · Getting tested for HIV',start:.9,end:5},
+  {label:'Read the lab window',title:'Venous antigen/antibody test',copy:'This lab test uses blood from a vein. It can detect p24, a piece of HIV, and antibodies, which the immune system makes in response to HIV.',tip:'CDC’s usual detection window refers to the lab test using blood from a vein. A rapid finger-stick test has a different window.',source:CDC_TEST,sourceName:'CDC · Getting tested for HIV',start:5.7,end:11},
+  {label:'Compare the RNA window',title:'Nucleic acid test (NAT)',copy:'The lower detector looks for HIV’s genetic material (RNA). It can usually detect HIV sooner than other types of HIV tests.',tip:'The usual NAT range applies in the absence of antiretroviral medicines. Medicines such as PrEP or PEP can affect detection timing.',source:CDC_PARTNERS,sourceName:'CDC · HIV testing for public health',start:11.7,end:16.8},
+  {label:'Check an early negative',title:'An early negative needs follow-up',copy:'The clock returns to a time before either usual window. A negative result during the window period cannot rule out a recent infection.',tip:'Ask a clinician or testing service when to repeat the test. Mention PrEP, PEP or other antiretroviral medicines and any later exposures.',source:CDC_TEST,sourceName:'CDC · Getting tested for HIV',start:17.5,end:21.8},
+  {label:'Turn the myth drum',title:'Check four common myths',copy:'The drum turns through four situations that do not spread HIV.',tip:'HIV transmission requires certain body fluids to reach a suitable entry site. Ordinary contact is safe.',source:CDC_ROUTES,sourceName:'CDC · How HIV spreads',start:22.5,end:31.3},
+  {label:'Reset the instrument',title:'Return to standby',copy:'The tray retracts and the drum returns to its first card.',tip:'Choose a testing window based on the type of test and professional guidance. Stay connected with people living with HIV.',source:CDC_TEST,sourceName:'CDC · Getting tested for HIV',start:32,end:36}
+].map(Object.freeze));
+const IDLE=Object.freeze({title:'Start at the sample tray',copy:'Use the switches in order to compare two HIV tests and check four common transmission myths.',tip:'The instrument explains testing windows. It cannot detect HIV or interpret a personal result.',source:CDC_TEST,sourceName:'CDC · Getting tested for HIV'});
+const IDEA='HIV tests have different detection windows, and everyday contact does not spread HIV.';
+const clamp=(n,lo=0,hi=1)=>Math.max(lo,Math.min(n,hi));
+const ease=n=>{const p=clamp(n);return p*p*(3-2*p);};
+const lerp=(a,b,p)=>a+(b-a)*p;
+const timecode=(start,end,t)=>ease((t-start)/(end-start));
+const formatWindow=test=>test.min+'–'+test.max+' days';
+function simulateTesting(seconds) {
+  const t=clamp(Number.isFinite(seconds)?seconds:0,0,36);
+  const index=STEPS.findLastIndex(step=>t>=step.start);
+  const step=STEPS[index];
+  const done=t>=35.25;
+  const scene=done||!step?IDLE:step;
+  const loading=timecode(.9,4.4,t)*(1-timecode(32,35.2,t));
+  const selector=timecode(5.7,7.5,t)+timecode(11.7,13.5,t)-2*timecode(17.5,19.7,t);
+  const showLab=timecode(5.9,7.7,t)*(1-timecode(11.7,13.1,t));
+  const showNat=timecode(11.9,13.5,t)*(1-timecode(17.5,19.2,t));
+  const test=index===1?TESTS.lab:index===2?TESTS.nat:null;
+  const scaleDays=50;
+  const day=lerp(0,TESTS.lab.max,timecode(6.3,10.7,t))
+    +(TESTS.nat.max-TESTS.lab.max)*timecode(11.7,15.7,t)
+    +(6-TESTS.nat.max)*timecode(17.5,20.0,t)-6*timecode(32,35.2,t);
+  const drum=(timecode(24.15,24.95,t)+timecode(26.25,27.05,t)+timecode(28.35,29.15,t)+timecode(32.2,35.1,t))*90;
+  const mythIndex=index===4?Math.round(drum/90):null;
+  const myth=mythIndex===null?null:MYTHS[mythIndex];
+  const windowLabel=test
+    ? (index===1?showLab:showNat)>.55
+      ? formatWindow(test).toUpperCase()+' · USUAL DETECTION'
+      : 'SELECTING WINDOW'
+    : 'CDC TEST WINDOWS';
+  const drumLabel=myth?'NO HIV ROUTE':index===5&&!done?'DRUM RETURNING':'DRUM PARKED';
+  const status=done||index===-1?'READY':index===0?'SAMPLE SYMBOLS':test?'TYPICAL WINDOW':index===3?'FOLLOW-UP MATTERS':index===4?'NO HIV ROUTE':'RETURN TO START';
+  const next=done||index===-1?0:t>=step.end&&index<STEPS.length-1?index+1:-1;
+  return {t,index,done,next,scene,status,test,windowLabel,drumLabel,labWindow:formatWindow(TESTS.lab),natWindow:formatWindow(TESTS.nat),myth,idea:IDEA,
+    scaleDays,day:clamp(day,0,scaleDays),loading,selector,showLab,showNat,drum,check:timecode(22.5,23.9,t)*(1-timecode(32,33.5,t))};
+}
+if(typeof module!=='undefined')module.exports={TESTS,MYTHS,STEPS,simulateTesting};
+</script>
+</head>
+<body>
+<main>
+<header>
+<p class="eyebrow">HIV Education Workshop · Machine <span id="edition"></span></p>
+<h1>HIV Testing &amp; Myth Detection</h1>
+<p>Compare two test windows. Turn the drum to check everyday situations.</p>
+</header>
+<div class="grid">
+<nav aria-label="Lesson controls">
+<p class="eyebrow">Operate the instrument</p>
+<ol id="steps"></ol>
+<button id="tour" type="button">Play guided tour</button> <button id="pause" disabled type="button">Pause</button>
+<svg id="hand" viewBox="0 0 44 44" aria-hidden="true" hidden><path d="M8 17q-2 3 1 6l11 16q3 4 8 2l10-4q4-2 3-8l-2-8q-1-4-5-3-1-4-5-3-2-4-5-1l-7-10q-3-4-6-2-3 3-1 6l9 16-5-5q-4-4-6-2z" fill="#f3d994" stroke="#223047" stroke-width="1.2"/><path d="M27 17l3 6m4-4l2 6m-14-8l5 9" fill="none" stroke="#223047" stroke-width="1.2"/></svg>
+</nav>
+<figure>
+<p class="eyebrow">Cutaway · diagnostic teaching bench</p>
+<svg class="machine" viewBox="64 55 766 488" role="img" aria-label="Isometric clock, diagnostic cutaway and myth drum"></svg>
+<figcaption>Ag / Ab = antigen / antibody. The symbols illustrate test targets.</figcaption>
+</figure>
+<aside aria-label="Medical explanation">
+<p class="eyebrow">Field notes</p>
+<h2 id="lessonTitle"></h2>
+<p id="lessonCopy"></p>
+<div class="windows">
+<div>Venous lab Ag / Ab<strong id="labWindow"></strong></div>
+<div>NAT, no ARVs<strong id="natWindow"></strong></div>
+</div>
+<ul id="mythList" aria-label="Situations that do not transmit HIV" hidden></ul>
+<p id="mythNote" hidden></p>
+<p id="lessonTip"></p>
+<a id="source" target="_blank" rel="noopener"></a>
+</aside>
+</div>
+<footer id="closing"><p><strong>The big idea:</strong> <span id="idea"></span></p><small>U.S. CDC guidance. A teaching instrument for understanding test windows and transmission.</small></footer>
+</main>
+<script>const brass=['#f4dca2','#e5b968','#b18349'];
+const metal=['#e3ebe3','#b8c7c0','#829d98'];
+const enamel=['#e1e8ce','#bcc9a8','#8caa8c'];
+const steel=['#eff1e9','#d0d9d0','#9aaea7'];
+const coral='#d78870';
+const ink='#223047';
+const box=(x,y,w,h,depth,c)=>{const rise=depth*.55;return `<path fill="${c[0]}" d="M${x},${y}l${depth},-${rise}h${w}l-${depth},${rise}Z"/><path fill="${c[2]}" d="M${x+w},${y}l${depth},-${rise}v${h}l-${depth},${rise}Z"/><rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${c[1]}"/>`;};
+const bolt=(x,y,r=4)=>`<circle cx="${x}" cy="${y}" r="${r}" fill="#dce3d9"/><path fill="none" d="M${x-r*.54},${y+r*.36}l${r*1.08},-${r*.72}"/>`;
+const label=(x,y,s,size=12)=>`<text x="${x}" y="${y}" font-size="${size}">${s}</text>`;
+const at=(length,f)=>Array.from({length},(_,i)=>f(i)).join('');
+const arcPoint=(r,value)=>{const a=(150+value*4.8)*Math.PI/180;return [234+r*Math.cos(a),282+r*Math.sin(a)];};
+function arc(r,min,max) {
+  const [x,y]=arcPoint(r,min), [X,Y]=arcPoint(r,max);
+  return `M${x} ${y}A${r} ${r} 0 0 1 ${X} ${Y}`;
+}
+const mythsArt=[
+  '<path d="M-24 0l13-11 9 4 8-4 18 13-11 11-6-3-7 6-10-8-8 2z" fill="#efd09b"/><path d="M-12-7l10 6 8-4m0 10l10 5M-1 9l6 5" fill="none"/>',
+  '<circle cx="-11" cy="-13" r="7" fill="#efd09b"/><circle cx="11" cy="-13" r="7" fill="#efd09b"/><path d="M-23 14v-7q0-10 11-10T0 10q1-13 12-13T23 7v7z" fill="#c3d4b4"/><path d="M-18 3l17 8L17 3" fill="none"/>',
+  '<ellipse rx="16" ry="13" fill="#f6e4bc"/><ellipse rx="10" ry="8" fill="#e5b968"/><path d="M-23-12v24m-4-24v8h8v-8m42 24v-25q-7 8-4 13h4" fill="none"/>',
+  '<path d="M-5-2q-22-25-20-4 6 9 20 7M4-2q22-25 20-4-6 9-20 7" fill="#d9e5df"/><ellipse rx="4" ry="14" fill="#e5b968"/><path d="M0-12l5-6M-4 4l-15 9m23-9l15 9M-3 10l-11 7m17-7l11 7" fill="none"/>'
+];
+const targetSymbols=[
+ '<path d="M0-8l8 4v8l-8 4-8-4v-8z" fill="#d78870"/>',
+ '<path d="M0 8V1L-7-6m7 7l7-7" fill="none" stroke-width="2.6"/>',
+ '<path d="M-9 4q5-12 9-3t9-3" fill="none" stroke-width="2.2"/>'
+];
+const frame=(x,y,w,h)=>`<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="7" fill="#87a099"/><rect x="${x+7}" y="${y+7}" width="${w-14}" height="${h-14}" rx="3" fill="#e9eee0"/>${[[x+4,y+4],[x+w-4,y+4],[x+4,y+h-4],[x+w-4,y+h-4]].map(([X,Y])=>bolt(X,Y,2.5)).join('')}`;
+const pipe=(path)=>`<path d="${path}" stroke-width="13.2" fill="none"/><path d="${path}" stroke="#adbfaf" stroke-width="10.8" fill="none"/>`;
+const glass=(x,y,w)=>`<path d="M${x} ${y}h${w}m-${w} 0v29" fill="none" stroke="#fffaf0" stroke-width="2.4"/>`;
+const instrument=`
+<title>HIV testing window clock and rotating myth drum</title>
+<defs><clipPath id="drumMask"><rect x="536" y="232" width="115" height="110" rx="3"/></clipPath></defs>
+<path d="M104 506l590 1 121-70-18 29-105 61H118z" fill="#ddd4c3" stroke="none"/>
+${box(111,469,75,29,42,metal)}${box(570,469,67,29,42,metal)}
+${box(87,443,608,39,111,brass)}
+${box(103,151,581,296,106,enamel)}
+${box(100,144,585,22,109,brass)}
+${box(144,109,166,34,49,metal)}${box(156,102,150,11,43,brass)}
+${label(159,130,'WINDOW CLOCK',13)}
+${box(516,110,145,34,54,metal)}${box(528,100,138,14,49,brass)}
+${label(530,131,'MYTH VERIFIER',13)}
+${box(342,104,55,22,37,brass)}
+${at(7,i=>`<path d="M${350+i*5} 108v11" fill="none"/>`)}
+${box(412,129,61,15,29,steel)}
+${at(5,i=>`<path d="M${422+i*8} 132v8" fill="none"/>`)}
+${at(10,i=>`<path d="M${701+i*5} ${262-i*2.75}v29" fill="none"/>`)}
+${at(6,i=>`<path d="M${706+i*5} ${351-i*2.75}v19" fill="none"/>`)}
+${bolt(706,164)}${bolt(766,130)}${bolt(707,400)}${bolt(767,367)}
+${frame(126,178,213,216)}
+${frame(346,178,169,216)}
+${frame(524,178,139,216)}
+<circle cx="234" cy="282" r="87" fill="#f6e6c2"/>
+<circle cx="234" cy="282" r="80" fill="#faf0d6"/>
+${at(11,i=>{const [x,y]=arcPoint(76,i*5), [X,Y]=arcPoint(i%2===0?64:69,i*5);return `<path d="M${x} ${y}L${X} ${Y}" fill="none"/>`;})}
+<g id="ticks"></g><path id="labArc" fill="none" stroke="#aa7545" stroke-width="5"/><path id="natArc" fill="none" stroke="#527f74" stroke-width="5"/>
+<g id="needle"><path d="M234 282h-48l9-3 39 1z" fill="#80583b"/><circle cx="234" cy="282" r="6" fill="#e5b968"/></g>
+${label(234,320,'DAYS SINCE',11).replace('<text','<text text-anchor="middle"')}
+${label(234,335,'POSSIBLE EXPOSURE',10).replace('<text','<text text-anchor="middle"')}
+${glass(140,192,45)}
+${label(360,204,'TEACHING CUTAWAY',11)}
+${pipe('M362 332H489V250h-20M489 295h-20')}
+<rect x="386" y="226" width="83" height="35" rx="3" fill="#e9d5a6"/>
+<rect x="386" y="272" width="83" height="35" rx="3" fill="#c2d5c8"/>
+${label(392,249,'Ag / Ab',11)}${label(396,295,'RNA',13)}
+<g id="labTargets">${targetSymbols.slice(0,2).map((p,i)=>`<g transform="translate(${444+i*16} 244) scale(.7)">${p}</g>`).join('')}</g>
+<g id="natTarget" transform="translate(452 289)">${targetSymbols[2]}</g>
+<rect x="357" y="346" width="148" height="13" rx="3" fill="#bccac0"/>
+<rect x="365" y="348" width="131" height="5" rx="2" fill="#edf2e7"/>
+<g id="tray">${box(363,326,57,18,11,brass)}${bolt(373,335,3)}${at(3,i=>`<circle cx="${389+i*10}" cy="334" r="3.6" fill="${i===0?coral:'#bdcda9'}"/>`)}</g>
+${glass(355,188,21)}
+${label(538,206,'SCENARIO DRUM',11)}
+<path d="M591 219v14m0 105v12" stroke-width="7" stroke="#809c91"/>
+<rect x="536" y="228" width="115" height="119" rx="4" fill="#b5c9bd"/>
+<g id="drum" clip-path="url(#drumMask)"></g>
+<path d="M537 230h112v12H537zm0 103h112v12H537z" fill="#a6b8ae"/>
+${bolt(544,235,2.7)}${bolt(642,235,2.7)}${bolt(544,339,2.7)}${bolt(642,339,2.7)}
+<circle cx="545" cy="367" r="5.5" fill="#b4c4b6"/><circle id="mythLamp" cx="545" cy="367" r="5.5" fill="#719a70"/>
+<text x="557" y="371" font-size="9.5" id="mythShort">DRUM PARKED</text>
+${box(124,410,539,30,18,steel)}
+<rect x="140" y="417" width="225" height="16" rx="3" fill="#f5e7be"/>
+<text x="151" y="429" font-size="11" id="statusText"></text>
+<rect x="389" y="417" width="255" height="16" rx="3" fill="#e3ebd7"/>
+<text x="403" y="429" font-size="11" id="windowText"></text>
+${bolt(131,423,3)}${bolt(654,423,3)}
+<rect x="105" y="455" width="169" height="15" rx="3" fill="#f5e6c2"/>
+${label(115,466,'DIAGNOSTIC TEACHING BENCH',8.5)}
+${bolt(97,460,3)}${bolt(681,460,3)}
+${at(7,i=>`<path d="M${590+i*9} 453l-6 14" fill="none"/>`)}
+`;
+function drawDrum(degrees) {
+  return mythsArt.map((art,i)=>{
+    const angle=(i*90-degrees)*Math.PI/180;
+    const c=Math.cos(angle),s=Math.sin(angle);
+    if(c<=0)return '';
+    return `<g transform="matrix(${c} 0 ${s*.15} 1 ${593+s*57} 287)" opacity="${Math.min(1,c*3)}">
+      <rect x="-53" y="-40" width="106" height="80" rx="4" fill="#f5e7bc"/>
+      <rect x="-46" y="-33" width="92" height="66" rx="3" fill="#f9efd2"/>
+      ${art}
+    </g>`;
+  }).join('');
+}
+</script>
+<script>(() => {
+const $=id=>document.getElementById(id);
+const svg=document.querySelector('.machine');
+svg.innerHTML=instrument;
+$('edition').textContent='09';
+const renderMode=new URLSearchParams(location.search).has('render');
+document.body.classList.toggle('render',renderMode);
+const buttons=STEPS.map((step,i)=>{
+  const b=document.createElement('button');
+  const li=document.createElement('li');
+  b.type='button';b.className='step';
+  b.innerHTML=`<b>${String(i+1).padStart(2,'0')}</b><span>${step.label}</span>`;
+  li.append(b);$('steps').append(li);
+  b.addEventListener('click',()=>start(step.start,step.end,false));
+  return b;
+});
+$('mythList').replaceChildren(...MYTHS.map(([name])=>{
+  const li=document.createElement('li');
+  li.textContent=name;
+  return li;
+}));
+let frame=0,playback=null,position=0;
+const setText=(id,text)=>{const el=$(id);if(el.textContent!==text)el.textContent=text;};
+const attr=(id,key,value)=>$(id).setAttribute(key,String(value));
+function draw(time,guided,busy){
+  const s=simulateTesting(time);
+  position=s.t;
+  $('ticks').innerHTML=at(6,i=>{
+    const day=s.scaleDays*i/5,[x,y]=arcPoint(53,day);
+    return `<text x="${x}" y="${y+3}" font-size="9.8" text-anchor="middle">${day}</text>`;
+  });
+  attr('needle','transform',`rotate(${-30+s.day*4.8} 234 282)`);
+  attr('labArc','d',arc(79,TESTS.lab.min,TESTS.lab.max));
+  attr('natArc','d',arc(69,TESTS.nat.min,TESTS.nat.max));
+  attr('labArc','opacity',s.showLab);
+  attr('natArc','opacity',s.showNat);
+  attr('labTargets','opacity',.43+.57*s.showLab);
+  attr('natTarget','opacity',.43+.57*s.showNat);
+  attr('tray','transform',`translate(${14*s.loading+17*s.selector} 0)`);
+  $('drum').innerHTML=drawDrum(s.drum);
+  attr('mythLamp','opacity',s.check);
+  setText('mythShort',s.drumLabel);
+  setText('statusText',s.status);
+  setText('windowText',s.windowLabel);
+  setText('labWindow',s.labWindow);
+  setText('natWindow',s.natWindow);
+  setText('lessonTitle',s.scene.title);
+  setText('lessonCopy',s.scene.copy);
+  setText('lessonTip',s.scene.tip);
+  setText('mythNote',s.myth?s.myth[0]+' · '+s.myth[1]:'');
+  $('mythNote').hidden=!s.myth;
+  $('mythList').hidden=!s.myth;
+  $('mythList').querySelectorAll('li').forEach((li,i)=>li.classList.toggle('selected',s.myth?.[0]===MYTHS[i][0]));
+  $('source').href=s.scene.source;
+  setText('source',s.scene.sourceName);
+  setText('idea',s.idea);
+  $('closing').classList.toggle('done',guided&&s.done);
+  buttons.forEach((b,i)=>{
+    b.disabled=renderMode||busy||i!==s.next;
+    b.classList.toggle('pressed',i===s.index&&s.next<0&&!s.done);
+    b.classList.toggle('complete',!s.done&&i<s.index);
+  });
+  const hand=$('hand');
+  const hideHand=!guided||s.done;
+  hand.toggleAttribute('hidden',hideHand);
+  if(hideHand)hand.removeAttribute('style');
+  if(guided&&!s.done){
+    const current=Math.max(s.index,0), here=buttons[current], next=buttons[current+1];
+    const p=next?timecode(STEPS[current].end,STEPS[current+1].start,s.t):0;
+    const press=STEPS.reduce((peak,step)=>{
+      const click=step.start;
+      return Math.max(peak,timecode(click-.14,click,s.t)*(1-timecode(click,click+.15,s.t)));
+    },0);
+    const y=lerp(here.offsetTop+here.offsetHeight/2,next?next.offsetTop+next.offsetHeight/2:0,p);
+    hand.style.transform=`translate(${here.offsetWidth-32-press*9}px,${y-3}px) rotate(${-17+12*press-7*Math.sin(p*Math.PI)}deg)`;
+  }
+  return s;
+}
+function stop(){
+  if(frame)cancelAnimationFrame(frame);
+  frame=0;playback=null;$('pause').disabled=true;
+  $('pause').textContent='Pause';
+}
+function play(){
+  const p=playback, base=position, begin=performance.now();
+  const tick=now=>{
+    const time=Math.min(p.end,base+(now-begin)/1000);
+    draw(time,p.guided,time<p.end);
+    if(time<p.end)frame=requestAnimationFrame(tick);else stop();
+  };
+  frame=requestAnimationFrame(tick);
+}
+function start(from,to,guided){
+  stop();playback={end:to,guided};
+  if(!guided&&matchMedia('(prefers-reduced-motion: reduce)').matches){
+    draw(to,false,false);stop();return;
+  }
+  $('pause').disabled=false;draw(from,guided,true);play();
+}
+$('tour').addEventListener('click',()=>start(0,36,true));
+$('pause').addEventListener('click',()=>{
+  if(!playback)return;
+  if(frame){cancelAnimationFrame(frame);frame=0;$('pause').textContent='Resume';}
+  else{$('pause').textContent='Pause';play();}
+});
+window.simulateTesting=simulateTesting;
+window.seek=t=>{stop();return draw(Number(t),true,false);};
+draw(0,renderMode,false);
+
+})();
+</script>
+</body>
+</html>

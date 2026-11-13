@@ -1,0 +1,6 @@
+{
+  "name": "hiv-science-museum",
+  "private": true,
+  "type": "module",
+  "scripts": { "build": "node src/build.mjs", "dev": "node src/serve.mjs" }
+}

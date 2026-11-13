@@ -1,0 +1,516 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Body Fluid Classifier · HIV Science Workshop</title>
+<style>
+:root{--paper:#f5f0e5;--ink:#222d43;--shadow:#ddd4c3;--cream:#fff9ec;--brass:#dca957;--sage:#7b9d81;--coral:#db7568}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:system-ui,sans-serif}
+button,a{color:inherit}
+main{max-width:1480px;margin:auto;padding:30px clamp(16px,3vw,50px) 22px}
+header{display:flex;justify-content:space-between;align-items:flex-start;gap:20px;padding-bottom:23px;border-bottom:1.2px solid var(--ink)}
+.kicker,.eyebrow{font-size:.73rem;letter-spacing:.13em;font-weight:750;text-transform:uppercase}
+h1,h2,p{margin:0}
+h1{font-family:Georgia,serif;font-weight:500;font-size:clamp(2rem,4.4vw,4.25rem);letter-spacing:-.047em;line-height:1.06;margin:5px 0 8px}
+header p{font-size:.99rem}
+.seal{white-space:nowrap;margin-top:8px;border:1.2px solid;border-radius:40px;padding:7px 12px;background:#e4e8d5;box-shadow:3px 3px 0 var(--shadow)}
+.workspace{display:grid;grid-template-columns:minmax(172px,1fr) minmax(0,3.65fr) minmax(222px,1.28fr);gap:clamp(12px,1.8vw,30px);align-items:start;margin-top:21px}
+.steps{position:relative;isolation:isolate}
+nav ol{padding:0;list-style:none;margin:12px 0 16px;display:grid;gap:8px}
+.step{display:grid;grid-template-columns:22px 1fr 10px;gap:8px;align-items:center;min-height:49px;width:100%;text-align:left;border:1.2px solid;border-radius:9px 8px 10px 8px;font:700 .83rem/1.2 system-ui,sans-serif;padding:7px 9px;background:#e8e3d8;box-shadow:2px 3px var(--shadow)}
+.step span:first-child{display:grid;place-items:center;font:700 .72rem system-ui;border:1.2px solid;border-radius:50%;width:22px;height:22px}
+.step:disabled{color:#646469}
+.step.available{background:#edc576;cursor:pointer;color:var(--ink)}
+.step.playing{background:#e7b873;color:var(--ink)}
+.step.playing span:first-child{background:var(--cream)}
+.step.done{background:#e1e6d8}
+.step .lamp{width:7px;height:7px;border-radius:50%;border:1.2px solid;background:#faf1d7}
+.step.playing .lamp{background:#658f76}
+button:focus-visible,a:focus-visible{outline:3px solid #465a82;outline-offset:3px}
+#tour{background:#f9eed7;border:1.2px solid;border-radius:30px;padding:8px 12px;font:650 .77rem system-ui;cursor:pointer}
+#cursor{position:absolute;top:0;left:0;z-index:2;pointer-events:none;display:none;width:39px}
+figure{position:relative;margin:0;padding:4px 5px 0}
+figure svg{display:block;width:100%;height:auto;overflow:visible}
+figcaption{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 0 0;font-size:.76rem;min-height:38px}
+.palette{display:flex;align-items:center;gap:6px}
+.swatch{width:19px;height:19px;border-radius:50%;border:1.2px solid;cursor:pointer}
+.swatch[aria-pressed=true]{outline:1.2px solid;outline-offset:2px}
+.notes{border:1.2px solid var(--ink);border-radius:13px 11px 15px 11px;background:var(--cream);box-shadow:4px 4px var(--shadow);padding:14px;min-height:453px}
+.notes h2{font:500 1.46rem/1.12 Georgia,serif;margin:7px 0 11px;min-height:50px}
+.notes p{font-size:.86rem;line-height:1.47}
+.legend{list-style:none;padding:8px 0 7px;margin:11px 0;border-top:1px dashed #b4a894;border-bottom:1px dashed #b4a894;display:grid;grid-template-columns:1fr;gap:3px}
+.legend li{display:flex;gap:6px;align-items:center;font-size:.76rem}
+.legend i{display:inline-block;width:9px;height:9px;border:1.2px solid var(--ink);border-radius:40%}
+.small{font-size:.74rem!important}
+.source{display:block;margin-top:9px;line-height:1.5;font-size:.74rem}
+.chips{margin:20px 0 0;display:flex;flex-wrap:wrap;gap:8px;min-height:32px}
+.chips span{padding:5px 10px;border:1.2px solid var(--ink);border-radius:18px;font-size:.76rem;background:#f9f2e0}
+.idea{margin-top:13px;border-top:1.2px solid;padding-top:12px;font-family:Georgia,serif;font-size:clamp(.99rem,1.45vw,1.23rem);min-height:76px}
+.idea small{display:block;font:400 .73rem/1.4 system-ui;margin-top:6px}
+.idea strong{font-weight:700}
+[hidden]{display:none!important}
+.render #tour,.render .palette{visibility:hidden}
+svg text{fill:var(--ink);stroke:none}
+@media(max-width:920px){.workspace{grid-template-columns:155px minmax(0,1fr)}.notes{grid-column:1/-1;min-height:0}.notes h2{min-height:0}.legend{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:530px){.workspace{grid-template-columns:1fr}.notes{grid-column:auto}nav ol{grid-template-columns:1fr;gap:5px}.step{min-height:39px}header .seal{display:none}.legend{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<body>
+<main>
+<header>
+<div><div class="kicker">HIV science workshop · Machine 02</div><h1>The Body Fluid Classifier</h1><p>Turn the carousel. Follow the sample. Check the route.</p></div>
+<span class="seal eyebrow">An illustrated lab</span>
+</header>
+<div class="workspace">
+<nav class="steps" aria-label="Lesson steps"><div class="eyebrow">Control switches</div><ol id="steps"></ol><button type="button" id="tour">▶ Play 36 s tour</button><svg id="cursor" viewBox="0 0 43 46" aria-hidden="true"><path d="M8 20c1-3 5-4 8-1V5c0-5 6-5 6 0v13c1-5 7-5 7 0 2-4 7-2 7 2 4-3 7 0 6 4l-2 11c-1 5-4 6-4 10H18c0-5-2-7-4-11Z" fill="#edc576" stroke="#222d43" stroke-width="1.2" stroke-linejoin="round"/><path d="M20 41h14m-6-18v5m7-4v4" fill="none" stroke="#222d43" stroke-width="1.2" stroke-linecap="round"/></svg></nav>
+<figure>
+<svg id="rig" viewBox="0 0 758 610" role="img" aria-label="Isometric sample carousel with an exposed drive, transparent route window, sliding gate and instrument panel"></svg>
+<figcaption><span>Cutaway view · Sample colours are teaching symbols</span><div class="palette" aria-label="Casing colour"><button class="swatch" type="button" data-case="sage" style="background:#b3bba0" aria-label="Sage casing" aria-pressed="true"></button><button class="swatch" type="button" data-case="yellow" style="background:#dcbb7b" aria-label="Ochre casing" aria-pressed="false"></button><button class="swatch" type="button" data-case="cream" style="background:#d6c9ae" aria-label="Cream casing" aria-pressed="false"></button></div></figcaption>
+</figure>
+<aside class="notes" aria-label="Medical explanation"><div class="eyebrow" id="chapter"></div><h2 id="noteTitle"></h2><p id="note"></p><ul class="legend" id="legend" aria-label="Six fluid categories in CDC enumeration"></ul><p class="small" id="meaning"></p><a class="source" href="https://hivrisk.cdc.gov/what-is-hiv/">CDC · Body fluids that can carry HIV ↗</a><a class="source" href="https://www.hiv.gov/hiv-basics/overview/about-hiv-and-aids/how-is-hiv-transmitted">HIV.gov · How Is HIV Transmitted? ↗</a></aside>
+</div>
+<div class="chips" id="chips"></div>
+<p class="idea"><strong>The big idea:</strong> <span id="idea"></span><small>This fictional simulator teaches exposure conditions. It does not detect HIV, estimate personal risk, or represent literal anatomy.</small></p>
+</main>
+<script>
+'use strict';
+// Pure medical model. Sample identities, permitted examples and teaching states are resolved here before rendering.
+const samples=Object.freeze([
+  {name:'Blood',label:'Blood',mark:'BL',color:'#c66364',routes:['puncture'],listed:true},
+  {name:'Semen',label:'Semen',mark:'SE',color:'#e0a278',routes:['mucosa'],listed:true},
+  {name:'Pre-seminal fluid',label:'Pre-seminal fluid',mark:'PS',color:'#c2847d',routes:['mucosa'],listed:true},
+  {name:'Rectal fluid',label:'Rectal fluid',mark:'RF',color:'#d39a6e',routes:['mucosa'],listed:true},
+  {name:'Vaginal fluid',label:'Vaginal fluid',mark:'VF',color:'#e0ae8a',routes:['mucosa'],listed:true},
+  {name:'Breast milk',label:'Breast milk',mark:'BM',color:'#dfc988',routes:['nursing'],listed:true},
+  {name:'Sweat',label:'Sweat',mark:'SW',color:'#a4c3b4',routes:[],listed:false},
+  {name:'Tears',label:'Tears',mark:'TE',color:'#9ab8bc',routes:[],listed:false},
+  {name:'Saliva',label:'Saliva',mark:'SA',color:'#9caeb6',routes:[],listed:false},
+]);
+const routes={none:'No route selected', intact:'Intact skin', puncture:'Direct blood entry', mucosa:'Susceptible mucosa', nursing:'Breastfeeding', everyday:'Ordinary contact'};
+const lessons=[
+  {button:'Count the fluids',title:'Meet the carousel',note:'Each marked vial represents a fluid category. CDC’s public guide lists these categories because they can transmit HIV when the source and route conditions are met.',meaning:'The count is a list of fluid categories. It is not a risk score or a count of particles.'},
+  {button:'Compare blood routes',title:'Same fluid, different route',note:'Blood containing transmissible HIV on healthy, intact skin has no entry route. A contaminated sharp can instead introduce blood through the skin.',meaning:'The two positions compare entry conditions. Use sterile equipment and follow local sharps safety practices.'},
+  {button:'Turn to sexual fluids',title:'Check the sexual-fluid route',note:'Semen, pre-seminal fluid, rectal fluid and vaginal fluid can carry HIV. An exposure can occur if a potentially infectious fluid reaches a susceptible mucous membrane during vaginal or anal sex.',meaning:'Condoms and PrEP can reduce sexual transmission risk. Sustained viral suppression with HIV treatment prevents sexual transmission (U=U).'},
+  {button:'Trace breast milk',title:'A feeding route',note:'HIV can pass to an infant through breast milk. This example shows a feeding exposure and does not represent transmission during pregnancy or birth.',meaning:'HIV treatment and individualized infant feeding guidance can reduce risk. Seek advice from a qualified care team.'},
+  {button:'Check ordinary contact',title:'Everyday contact is safe',note:'Sweat, tears and saliva alone do not transmit HIV. Ordinary contact includes hugging, sharing a meal and closed-mouth social kissing.',meaning:'Visible blood would be assessed as a separate exposure. You can share everyday spaces with people living with HIV.'},
+  {button:'Reset the machine',title:'Return the carousel',note:'The carousel returns to its starting position and the teaching route closes.',meaning:'Select the first switch to explore again.'}
+];
+const ready={title:'Before turning the dial',note:'A fluid category is only one part of an HIV exposure. Use the carousel to match each sample to an example route.',meaning:'Only the next switch is active.'};
+function simulateFluid(state) {
+  const {step=-1,sample=-1,route='none',source='unknown'}=state;
+  const current=samples[sample];
+  const listed=samples.filter(vial=>vial.listed);
+  const knownSource=source==='potential';
+  const compatible=Boolean(current?.routes.includes(route));
+  const possible=knownSource && compatible;
+  const isExample=Boolean(current)&&route!=='none';
+  const conclusion=possible?'Potential exposure':!isExample?'Route not evaluated':!compatible?'No route in this example':'Source status needed';
+  const gate=possible?'Route open':isExample?'Route held':'Gate parked';
+  return {sample:current,listed,count:listed.length,knownSource,compatible,possible,isExample,gate,conclusion,
+    route:routes[route],lesson:lessons[step]??ready,
+    sampleLabel:current?.label??'No sample selected',
+    sourceLabel:knownSource?'Source could transmit HIV':'Source status not simulated',
+    idea:'HIV transmission requires a potentially infectious fluid and an exposure route into the body.'};
+}
+window.simulateFluid=simulateFluid;
+
+// Choreography specifies teaching inputs. Mechanical movements are continuous functions of time.
+const schedule=Object.freeze([[.9,5.2],[5.9,11.4],[12.1,19.1],[19.8,24.2],[24.9,31.8],[32.5,36]]);
+const clips=[
+  [{at:.25,sample:0,route:'none'},{at:1.05,sample:1,route:'none'},{at:1.8,sample:2,route:'none'},{at:2.55,sample:3,route:'none'},{at:3.25,sample:4,route:'none'},{at:4,sample:5,route:'none'}],
+  [{at:.2,sample:0,route:'intact',source:'potential'},{at:2.9,sample:0,route:'puncture',source:'potential'}],
+  [{at:.15,sample:1,route:'mucosa',source:'potential'},{at:1.85,sample:2,route:'mucosa',source:'potential'},{at:3.55,sample:3,route:'mucosa',source:'potential'},{at:5.25,sample:4,route:'mucosa',source:'potential'}],
+  [{at:.15,sample:5,route:'nursing',source:'potential'}],
+  [{at:.15,sample:6,route:'everyday'},{at:2.25,sample:7,route:'everyday'},{at:4.35,sample:8,route:'everyday'}],
+  [{at:.12,sample:-1,route:'none'}],
+];
+const clamp=(x,a=0,b=1)=>Math.max(a,Math.min(b,x));
+const smooth=x=>{x=clamp(x);return x*x*(3-2*x)};
+const lerp=(a,b,x)=>a+(b-a)*x;
+const fractional=x=>x-Math.floor(x);
+const homeAngle=Math.PI*.25;
+const spacing=2*Math.PI/samples.length;
+const targetAngle=sample=>homeAngle-spacing*Math.max(sample,0);
+const nearestAngle=(from,target)=>from+Math.atan2(Math.sin(target-from),Math.cos(target-from));
+const events=[];
+let angle=homeAngle;
+let previous={step:-1,sample:-1,route:'none'};
+for(const [step,[start]] of schedule.entries()){
+  for(const [index,clip] of clips[step].entries()){
+    const {at,...input}=clip;
+    const time=start+at;
+    const target=nearestAngle(angle,targetAngle(input.sample));
+    const length=step===1&&index===0?1.55:step===5?1.8:step===0?.63:1.13;
+    const opening=simulateFluid({...input,step}).possible;
+    const before=simulateFluid(previous).possible;
+    events.push({time,length,from:angle,to:target,input:{...input,step},previous,before,opening});
+    angle=target;
+    previous={...input,step};
+  }
+}
+function frameAt(seconds){
+  const t=clamp(Number.isFinite(seconds)?seconds:0,0,36);
+  const step=schedule.reduce((n,[start],i)=>t>=start?i:n,-1);
+  const active=events.reduce((found,event)=>t>=event.time?event:found,null);
+  const end=t===36;
+  const parked=t>=35.25;
+  const elapsed=active?t-active.time:0;
+  const readyMotion=active?smooth(elapsed/active.length):0;
+  const latch=active?active.before===active.opening?Number(active.opening):lerp(Number(active.before),Number(active.opening),smooth(elapsed/.85)):0;
+  const considered=active&&(active.before===active.opening?elapsed>=active.length*.57:elapsed>=.55);
+  const pending=active?(considered?active.input:active.previous):{step:-1,sample:-1,route:'none'};
+  const inputs=parked?{step:-1,sample:-1,route:'none'}:step===0||step===5?{...pending,step}:pending;
+  const model=simulateFluid(inputs);
+  const rotation=active?lerp(active.from,active.to,readyMotion):homeAngle;
+  return {t,step:inputs.step,model,rotation,latch:end?0:latch,end,parked,
+    flow: model.possible?Math.min(smooth((latch-.55)/.45),smooth(elapsed/.35)):0};
+}
+
+// Isometric construction helpers. Shapes use flat three-tone colour, hard shadows and 1.2 px ink.
+const ink='#222d43';
+const glass=['#e4eee5','#c1d5cf','#a9c1ba'];
+const silver=['#edece0','#c5c7bd','#9da7a1'];
+const brass=['#f2d89b','#d6ac65','#b88d4f'];
+const mint=['#b9c9a9','#87a482','#65896e'];
+const casing={sage:['#e0e5cb','#b3bba0','#8e9d85'],yellow:['#f1dfa7','#dcbb7b','#ad925b'],cream:['#ebe1c9','#d6c9ae','#ada18c']};
+let shell='sage';
+const view=document.getElementById('rig');
+const iso=(x,y,z=0)=>[366+.88*(x-y),274+.43*(x+y)-z];
+const point=(x,y,z)=>iso(x,y,z).map(v=>v.toFixed(1)).join(',');
+const outline='stroke="#222d43" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"';
+const safe=string=>String(string).replace(/[&<>"']/g,v=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[v]));
+const polygon=(points,fill,extras='')=>'<polygon points="'+points.map(v=>point(...v)).join(' ')+'" fill="'+fill+'" '+outline+' '+extras+'/>';
+const line=(a,b,extras='')=>'<line x1="'+a[0]+'" y1="'+a[1]+'" x2="'+b[0]+'" y2="'+b[1]+'" '+outline+' '+extras+'/>';
+const ellipse=(x,y,rx,ry,fill,extras='')=>'<ellipse cx="'+x+'" cy="'+y+'" rx="'+rx+'" ry="'+ry+'" fill="'+fill+'" '+outline+' '+extras+'/>';
+const rect=(x,y,w,h,fill,rx=0,extras='')=>'<rect x="'+x+'" y="'+y+'" width="'+w+'" height="'+h+'" rx="'+rx+'" fill="'+fill+'" '+outline+' '+extras+'/>';
+const path=(d,fill='none',extras='')=>'<path d="'+d+'" fill="'+fill+'" '+outline+' '+extras+'/>';
+function box(x,y,z,w,d,h,colors){
+  return polygon([[x,y+d,z],[x+w,y+d,z],[x+w,y+d,z+h],[x,y+d,z+h]],colors[1])+
+  polygon([[x+w,y,z],[x+w,y+d,z],[x+w,y+d,z+h],[x+w,y,z+h]],colors[2])+
+  polygon([[x,y,z+h],[x+w,y,z+h],[x+w,y+d,z+h],[x,y+d,z+h]],colors[0]);
+}
+function cylinder(x,y,z,r,h,colors,extras=''){
+  const [a,b]=iso(x,y,z);
+  const u=r*1.24,v=r*.608, top=b-h;
+  return '<g '+extras+'>'+path('M'+(a-u)+' '+top+'V'+b+'A'+u+' '+v+' 0 0 0 '+(a+u)+' '+b+'V'+top+'Z',colors[1])+
+  path('M'+a+' '+top+'H'+(a+u)+'V'+b+'A'+u+' '+v+' 0 0 1 '+a+' '+(b+v)+'Z',colors[2],'stroke="none"')+
+  ellipse(a,top,u,v,colors[0])+'</g>';
+}
+function label(x,y,txt,size=12,extras=''){
+  return '<text x="'+x+'" y="'+y+'" font-size="'+size+'" '+extras+'>'+safe(txt)+'</text>';
+}
+function bolt(x,y,size=4){
+  return ellipse(x,y,size,size,'#d9d9ca')+line([x-size*.49,y+size*.32],[x+size*.49,y-size*.32]);
+}
+function gear(x,y,r,teeth,spin,fill){
+  const pts=[];
+  for(let k=0;k<teeth*4;k++){
+    const a=spin+k*Math.PI*2/(teeth*4);
+    const rad=k%4===1||k%4===2?r:r*.81;
+    pts.push([x+rad*Math.cos(a),y+rad*Math.sin(a)]);
+  }
+  return '<polygon points="'+pts.map(v=>v.join(',')).join(' ')+'" fill="'+fill+'" '+outline+'/>'+ellipse(x,y,r*.34,r*.34,'#f8eed5')+bolt(x,y,r*.15);
+}
+function vial(index,x,y,z,selected){
+  const {color,mark}=samples[index];
+  const [a,b]=iso(x,y,z);
+  return cylinder(x,y,z-5,13,6,silver)
+    +cylinder(x,y,z,9,43,glass,'opacity=".88"')
+    +path('M'+(a-10)+' '+(b-26)+'Q'+a+' '+(b-19)+' '+(a+10)+' '+(b-26)+'V'+(b-4)+'Q'+a+' '+(b+5)+' '+(a-10)+' '+(b-4)+'Z',color)
+    +path('M'+(a-7)+' '+(b-37)+'v11','none','style="stroke:#fff9ec"')
+    +cylinder(x,y,z+40,10,10,selected?brass:silver)
+    +rect(a-10.5,b-21,21,15,'#fff8e7',3)
+    +label(a,b-10,mark,8.8,'text-anchor="middle" font-weight="750"')
+    +(selected?path('M'+(a-6)+' '+(b-66)+'h12l-6 7Z','#edbd6a'):'');
+}
+function pipe(d){
+  return '<path d="'+d+'" fill="none" stroke="'+ink+'" stroke-width="15.2" stroke-linecap="round" stroke-linejoin="round"/>'+
+  '<path d="'+d+'" fill="none" stroke="#b7cbc3" stroke-width="12.8" stroke-linecap="round" stroke-linejoin="round"/>'+
+  '<path d="'+d+'" fill="none" stroke="#f1f5e8" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" transform="translate(0 -3)"/>';
+}
+function virion(x,y,size,alpha){
+  let spikes='';
+  for(let i=0;i<6;i++){const a=i*Math.PI/3;spikes+=line([Math.cos(a)*size*.85,Math.sin(a)*size*.85],[Math.cos(a)*size*1.48,Math.sin(a)*size*1.48]);}
+  return '<g transform="translate('+x+' '+y+')" opacity="'+alpha+'">'+spikes+ellipse(0,0,size,size,'#df8a77')+path('M-2.2 -1.8L2.3 -1.8 0 2Z','#f8d4b0')+'</g>';
+}
+const routePath='M185 300H237Q249 300 249 312V331Q249 342 261 342H538Q555 342 555 330V319Q555 305 568 305H616';
+const sceneFrame=()=>{
+  let svg=polygon([[-180,-112,1],[209,-112,1],[209,190,1],[-180,190,1]],'#ddd4c3','transform="translate(9 13)" style="stroke:none"');
+  for(const x of [-153,153])for(const y of [-110,134])svg+=box(x,y,-17,26,30,20,silver);
+  svg+=box(-178,-129,0,389,306,43,casing[shell]);
+  svg+=box(-177,-128,44,387,304,13,silver);
+  svg+=box(-167,-119,57,365,280,7,casing[shell]);
+  for(const x of [-156,180])for(const y of [-107,146]){
+    const [a,b]=iso(x,y,65); svg+=ellipse(a,b,4.8,2.7,brass[0])+line([a-2.4,b+.5],[a+2.4,b-.5]);
+  }
+  for(let k=0;k<13;k++){
+    const a=iso(-148+k*13,177,22);
+    svg+=line(a,[a[0]+5,a[1]-5]);
+  }
+  svg+=box(-150,-31,65,162,154,21,brass);
+  svg+=box(-155,-37,87,173,165,9,casing[shell]);
+  svg+=box(-146,104,86,156,13,11,silver);
+  svg+=box(-145,110,94,32,13,11,brass)+box(-32,110,94,32,13,11,brass);
+  svg+=box(71,-74,64,118,210,15,silver)+box(79,-63,79,105,191,7,casing[shell]);
+  svg+=box(104,-50,85,18,145,21,brass)+box(156,-50,85,18,145,21,silver);
+  for(let i=0;i<7;i++)svg+=box(160,-42+i*17,107,10,7,4,brass);
+  return svg;
+};
+function carousel(rotation,model){
+  const c=[-71,41];
+  const [x,y]=iso(...c,104);
+  let svg=cylinder(...c,100,79,14,silver)+cylinder(...c,112,91,17,brass)+cylinder(...c,127,88,6,casing[shell]);
+  svg+=ellipse(x,y-29,97,43,'none','style="stroke:#8a967d" stroke-dasharray="2 5"');
+  const vialRadius=73;
+  const items=samples.map((_,index)=>{
+    const a=rotation+spacing*index;
+    return {index,x:c[0]+vialRadius*Math.cos(a),y:c[1]+vialRadius*Math.sin(a)};
+  });
+  for(const item of items.filter(item=>item.x+item.y<c[0]+c[1]).sort((a,b)=>a.x+a.y-b.x-b.y)){
+    svg+=vial(item.index,item.x,item.y,135,model.sample===samples[item.index]);
+  }
+  svg+=cylinder(...c,132,30,17,silver)+cylinder(...c,149,25,13,brass)+cylinder(...c,162,14,18,casing[shell]);
+  const [a,b]=iso(...c,180);
+  svg+=ellipse(a,b,8,4,'#fff2c9');
+  const h=[a+6.8*Math.cos(rotation),b+3*Math.sin(rotation)]; svg+=line([a,b],h);
+  for(const item of items.filter(item=>item.x+item.y>=c[0]+c[1]).sort((a,b)=>a.x+a.y-b.x-b.y)){
+    svg+=vial(item.index,item.x,item.y,135,model.sample===samples[item.index]);
+  }
+  // Fixed extraction probe and hinged support.
+  svg+=dock()+path('M148 247h17v43h-17Z',silver[1])+rect(141,241,31,8,brass[1],2)+rect(150,286,13,15,glass[0],3)
+    +bolt(156,251,3)+path('M150 257h-26v22h17',silver[0])+bolt(130,267,3)
+    +rect(173,288,20,26,silver[1],3)+rect(177,294,11,13,brass[0],2);
+  return svg;
+}
+function dock(){
+  const d='M267 203V211Q267 217 258 221L166 267Q156 272 156 280V293';
+  return path('M251 197h30v13l-11 8h-21v-14Z',brass[2])
+    +rect(250,196,31,13,brass[0],3)+bolt(256,202,2.5)+bolt(275,202,2.5)
+    +'<path d="'+d+'" fill="none" stroke="'+ink+'" stroke-width="8.4" stroke-linecap="round"/>'
+    +'<path d="'+d+'" fill="none" stroke="#ceb279" stroke-width="6" stroke-linecap="round"/>'
+    +'<path d="'+d+'" fill="none" stroke="#f4e3b8" stroke-width="1.2" stroke-linecap="round" transform="translate(-1 -1)"/>';
+}
+function chamber(frame){
+  const {model,latch,t,flow}=frame;
+  let svg=path('M257 359h21v31h-21Z',silver[2])+path('M262 364h16v17h-16Z',silver[0])
+    +path('M600 359h21v31h-21Z',silver[2])+path('M605 364h16v17h-16Z',silver[0])
+    +path('M225 268l19-14 398 1 13 12-10 98-20 14H245l-20-15Z',brass[2])
+    +path('M225 268l19-14 398 1 13 12H235Z',brass[0])
+    +rect(225,266,419,99,glass[2],9)
+    +rect(236,277,397,78,'#e1ede4',6)
+    +path('M239 288l6-7 28-1M271 288l7-7 17-1M600 352l21-1 6-6','none','style="stroke:#faf9e9"')
+    +path('M236 277H632v78H236Z','none','stroke-dasharray="2 6" style="stroke:#8ba698"')
+    +pipe(routePath);
+  for(const [x,y] of [[238,273],[632,273],[238,357],[632,357],[292,342],[451,342],[522,342],[578,305]]){
+    svg+= y===342||y===305?rect(x-3,y-8,6,16,silver[1],1):bolt(x,y,3);
+  }
+  const gateY=323-34*latch;
+  svg+=rect(383,282,14,68,brass[1],4)+rect(386,289,8,57,glass[1],2);
+  svg+=rect(382,gateY,16,33,mint[1],3)+path('M383 '+(gateY+4)+'h11v23','none','style="stroke:#e6edd8"')
+    +bolt(390,gateY+16,2.8)
+    +rect(377,277,27,9,silver[1],2);
+  if(model.possible&&flow>0){
+    for(let i=0;i<11;i++){
+      const p=fractional(t*.58+i/11);
+      const u=75+p*287;
+      const edge=smooth(p/.09)*smooth((1-p)/.13);
+      const x=262+u-75;
+      const y=342+1.1*Math.sin(2*Math.PI*p+i);
+      svg+=virion(x,y,3.7,flow*edge);
+    }
+  }
+  svg+=rect(593,290,31,31,mint[0],6)+ellipse(608.5,305.5,11,11,'#e6ebd5')+
+    (model.possible?path('M603 306h10m-4-4 4 4-4 4','none'):path('M604 306l3 3 6-7','none'))
+    +rect(309,285,67,20,'#f5eed8',3)+label(342,299,'EXPOSURE',9.4,'text-anchor="middle" font-weight="750"')
+    +rect(408,285,43,20,'#eef2de',3)+label(429,299,'GATE',9.4,'text-anchor="middle" font-weight="750"')
+    +rect(475,285,103,20,'#eef2de',3)+label(526.5,299,'ENTRY CHECK',9.4,'text-anchor="middle" font-weight="750"');
+  return svg;
+}
+function dashboard(frame){
+  const {model,rotation,latch}=frame;
+  let svg=path('M142 389l16-16 476 1 14 16-12 112-18 11-463-3-13-14Z',casing[shell][2])
+    +path('M142 389l16-16 476 1 14 16Z',casing[shell][0])
+    +rect(142,389,493,109,casing[shell][1],9)
+    +rect(165,403,102,79,'#e4dcc2',7)
+    +rect(279,403,220,79,'#e1e7d7',7)
+    +rect(511,403,108,79,'#e4dcc2',7);
+  for(const x of [151,626])for(const y of [399,487])svg+=bolt(x,y,3.5);
+  svg+=label(216,418,'FLUID CATEGORIES',9,'text-anchor="middle" font-weight="800"')
+    +rect(197,425,38,41,'#fff7dc',4)
+    +label(216,456,model.count,30,'text-anchor="middle" font-family="Georgia"')
+    +label(216,476,'CDC LIST',8.2,'text-anchor="middle" font-weight="750"')
+    +label(292,421,'SAMPLE / ROUTE',9,'font-weight="800"')
+    +label(292,443,model.sampleLabel,15.6,'font-weight="750"')
+    +label(292,462,model.route,12.4)
+    +label(565,417,'EXPOSURE GATE',9,'text-anchor="middle" font-weight="800"')
+    +path('M537 454A28 28 0 0 1 593 454h-56Z','#fff7dc');
+  for(let k=0;k<9;k++){
+    const a=Math.PI+k*Math.PI/8;
+    svg+=line([565+24*Math.cos(a),454+24*Math.sin(a)],[565+27*Math.cos(a),454+27*Math.sin(a)]);
+  }
+  const angle=Math.PI+Math.PI*lerp(.19,.8,latch);
+  svg+=path('M564 455L'+(565+21*Math.cos(angle))+' '+(454+21*Math.sin(angle))+'L567 455Z',model.possible?'#d36f63':'#668d74')
+    +bolt(565,454,3)
+    +label(565,474,model.gate.toUpperCase(),9.4,'text-anchor="middle" font-weight="750"');
+  // Inspection hatch and drive gears below the dashboard.
+  svg+=rect(304,508,177,48,'#ddd4c3',6,'style="stroke:none" transform="translate(5 6)"')
+    +rect(302,504,178,46,brass[1],8)
+    +rect(308,511,166,33,'#f5e8c9',5)
+    +gear(368,527,13,11,rotation,brass[1])
+    +gear(392,526,14,12,-rotation*11/12+.12,silver[1])
+    +gear(418,528,13,11,rotation-.15,brass[1])
+    +label(328,531,'DRIVE',8,'text-anchor="middle" font-weight="800"')
+    +label(450,531,'GEARS',8,'text-anchor="middle" font-weight="800"');
+  return svg;
+}
+function draw(frame){
+  view.innerHTML=sceneFrame()+carousel(frame.rotation,frame.model)+chamber(frame)+dashboard(frame)+
+    path('M99 568l7-4 20 1m504-1 19 0 6 3','none','style="stroke:#998f7d"')+
+    label(379,588,'THE SAMPLE CAROUSEL',11,'text-anchor="middle" font-weight="750" letter-spacing="3"');
+}
+const list=document.getElementById('steps');
+const cursor=document.getElementById('cursor');
+const tour=document.getElementById('tour');
+const renderMode=new URLSearchParams(location.search).has('render');
+const reduce=matchMedia('(prefers-reduced-motion: reduce)');
+const elements=Object.fromEntries(['chapter','noteTitle','note','legend','meaning','idea','chips'].map(id=>[id,document.getElementById(id)]));
+let animation=0;
+let next=0;
+let latest=frameAt(0);
+let cachedModel='';
+document.documentElement.classList.toggle('render',renderMode);
+for(const [index,lesson] of lessons.entries()){
+  const row=document.createElement('li');
+  const button=document.createElement('button');
+  button.className='step';
+  button.type='button';
+  button.innerHTML='<span>'+String(index+1).padStart(2,'0')+'</span><span>'+lesson.button+'</span><i class="lamp" aria-hidden="true"></i>';
+  button.addEventListener('click',()=>playStep(index));
+  row.append(button);
+  list.append(row);
+}
+const buttons=[...list.querySelectorAll('button')];
+function drawCopy(frame){
+  const {model,step}=frame;
+  const key=JSON.stringify([step,model.sampleLabel,model.route,model.conclusion,model.sourceLabel]);
+  if(key===cachedModel)return;
+  cachedModel=key;
+  elements.chapter.textContent=step<0?'Field notes · Ready':'Field notes · '+String(step+1).padStart(2,'0');
+  elements.noteTitle.textContent=model.lesson.title;
+  elements.note.textContent=model.lesson.note;
+  elements.meaning.textContent=model.lesson.meaning;
+  elements.idea.textContent=model.idea;
+  elements.legend.innerHTML=model.listed.map(v=>'<li><i style="background:'+v.color+'"></i>'+safe(v.name)+'</li>').join('');
+  elements.chips.innerHTML=[model.count+' CDC-listed fluid categories',model.sampleLabel,model.route,model.sourceLabel,model.gate,model.conclusion].map(label=>'<span>'+safe(label)+'</span>').join('');
+}
+function show(frame,highlight,interactive,touring=false){
+  latest=frame;
+  draw(frame);
+  drawCopy(frame);
+  for(const [i,button] of buttons.entries()){
+    button.classList.toggle('playing',i===highlight);
+    button.classList.toggle('done',i<next&&i!==highlight);
+    button.classList.toggle('available',i===next&&highlight<0);
+    button.disabled=!interactive||highlight>=0||i!==next;
+    if(touring){
+      const [start,end]=schedule[i];
+      const time=frame.t;
+      const activation=smooth((time-start+.14)/.22);
+      const completion=smooth((time-end)/.35);
+      const resetting=smooth((time-35.15)/.65);
+      const rest=i===0?[237,197,118]:[232,227,216];
+      const current=rest.map((component,k)=>lerp(component,[231,184,115][k],activation));
+      const complete=current.map((component,k)=>lerp(component,[225,230,216][k],completion));
+      const color=complete.map((component,k)=>Math.round(lerp(component,rest[k],resetting)));
+      button.style.background='rgb('+color.join(',')+')';
+      button.style.color=i===highlight?'var(--ink)':'';
+    }else{
+      button.style.background='';
+      button.style.color='';
+    }
+  }
+  cursor.style.display=touring&&!frame.end?'block':'none';
+  if(touring&&!frame.end){
+    const i=schedule.findIndex(([,end])=>frame.t<end+.001);
+    const target=Math.max(0,i);
+    const first=target===0;
+    const [start]=schedule[target];
+    const from=first?0:schedule[target-1][1];
+    const phase=smooth((frame.t-from)/(start-from));
+    const point=buttons[target].parentElement.offsetTop+16;
+    const prior=first?buttons[0].parentElement.offsetTop-16:buttons[target-1].parentElement.offsetTop+16;
+    const lift=frame.t<start?-Math.sin(Math.PI*phase)*5:0;
+    const press=Math.max(0,1-Math.abs(frame.t-(start-.04))/.14);
+    cursor.style.transform='translate('+lerp(-12,5,phase)+'px,'+(lerp(prior,point,phase)+lift+press*4)+'px) scale('+lerp(1,.91,press)+')';
+    cursor.style.opacity=1-smooth((frame.t-35.1)/.65);
+  }
+}
+function cancel(){if(animation)cancelAnimationFrame(animation);animation=0;}
+window.seek=function(seconds){
+  cancel();
+  const frame=frameAt(seconds);
+  const highlight=frame.parked?-1:schedule.findIndex(([start,end])=>frame.t>=start&&frame.t<end);
+  next=frame.parked?0:schedule.filter(([,end])=>frame.t>=end).length;
+  show(frame,highlight,false,true);
+  return frame.model;
+};
+window.fluidFrame=frameAt;
+function playStep(index){
+  if(renderMode||index!==next||animation)return;
+  const [start,end]=schedule[index];
+  if(reduce.matches){
+    next=(index+1)%schedule.length;
+    show(frameAt(end),-1,true);
+    return;
+  }
+  let zero;
+  const tick=now=>{
+    if(zero===undefined)zero=now;
+    const t=Math.min(end,start+(now-zero)/1000);
+    if(t<end){
+      show(frameAt(t),index,false);
+      animation=requestAnimationFrame(tick);
+    }else{
+      animation=0; next=(index+1)%schedule.length; show(frameAt(end),-1,true);
+    }
+  };
+  show(frameAt(start),index,false);
+  animation=requestAnimationFrame(tick);
+}
+tour.addEventListener('click',()=>{
+  if(renderMode)return;
+  if(animation){
+    cancel();
+    tour.textContent='▶ Play 36 s tour';
+    next=0;show(frameAt(0),-1,true);
+    return;
+  }
+  let zero;
+  tour.textContent='■ Stop tour';
+  function tick(now){
+    if(zero===undefined)zero=now;
+    const frame=frameAt(Math.min(36,(now-zero)/1000));
+    const highlight=frame.parked?-1:schedule.findIndex(([start,end])=>frame.t>=start&&frame.t<end);
+    next=frame.parked?0:schedule.filter(([,end])=>frame.t>=end).length;
+    if(frame.end){
+      animation=0;next=0;tour.textContent='▶ Play 36 s tour';show(frame,-1,true);
+    }else{
+      show(frame,highlight,false,true);animation=requestAnimationFrame(tick);
+    }
+  }
+  animation=requestAnimationFrame(tick);
+});
+for(const button of document.querySelectorAll('.swatch')){
+  button.addEventListener('click',()=>{
+    if(renderMode)return;
+    shell=button.dataset.case;
+    for(const swatch of document.querySelectorAll('.swatch'))swatch.setAttribute('aria-pressed',swatch===button);
+    draw(latest);
+  });
+}
+if(renderMode)window.seek(0);else show(frameAt(0),-1,true);
+</script>
+</body>
+</html>
